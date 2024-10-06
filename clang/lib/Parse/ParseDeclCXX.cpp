@@ -1727,7 +1727,6 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
   else if (TagTokKind == tok::kw_class)
     TagType = DeclSpec::TST_class;
   else if (TagTokKind == tok::kw__Coroutine) {
-    llvm::errs() << "_Coroutine recognized as class\n";
     TagType = DeclSpec::TST_coroutine;
   }
     
