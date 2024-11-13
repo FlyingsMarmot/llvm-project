@@ -1822,7 +1822,7 @@ static void AddTypeSpecifierResults(const LangOptions &LangOpts,
 
     Builder.AddTypedTextChunk("_Coroutine");
     Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
-    Builder.AddInformativeChunk("_Coroutine test");
+    Builder.AddInformativeChunk("A Coroutine, as defined by concurrency course.");
 
     // typename name
     Builder.AddTypedTextChunk("typename");
