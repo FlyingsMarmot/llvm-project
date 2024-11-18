@@ -75,6 +75,8 @@ void foo() {
   // CHECK-CC1-NEXT: COMPLETION: z : [#void#]z(<#int#>)
 
   // RUN: %clang_cc1 -fsyntax-only  -code-completion-patterns -code-completion-at=%s:4:1 -std=gnu++11 %s -o - | FileCheck -check-prefix=CHECK-CC2 %s
+  // CHECK-CC2: COMPLETION: _Coroutine
+  // CHECK-CC2: COMPLETION: Pattern : _Coroutine [#A Coroutine, as defined by concurrency course.#]typename <#name#>
   // CHECK-CC2: COMPLETION: Pattern : asm(<#string-literal#>)
   // CHECK-CC2: COMPLETION: auto
   // CHECK-CC2-NEXT: COMPLETION: bool
@@ -108,7 +110,6 @@ void foo() {
   // CHECK-CC2-NEXT: COMPLETION: thread_local
   // CHECK-CC2-NEXT: COMPLETION: TYPEDEF : TYPEDEF
   // CHECK-CC2-NEXT: COMPLETION: Pattern : typedef <#type#> <#name#>;
-  // CHECK-CC2-NEXT: COMPLETION: Pattern : typename <#name#>
   // CHECK-CC2-NEXT: COMPLETION: Pattern : typeof <#expression#>
   // CHECK-CC2-NEXT: COMPLETION: Pattern : typeof(<#type#>)
   // CHECK-CC2-NEXT: COMPLETION: union
@@ -152,7 +153,6 @@ void foo() {
   // CHECK-CC3-NEXT: COMPLETION: Pattern : template<<#parameters#>>
   // CHECK-CC3-NEXT: COMPLETION: thread_local
   // CHECK-CC3-NEXT: COMPLETION: Pattern : typedef <#type#> <#name#>;
-  // CHECK-CC3-NEXT: COMPLETION: Pattern : typename <#name#>
   // CHECK-CC3-NEXT: COMPLETION: Pattern : typeof <#expression#>
   // CHECK-CC3-NEXT: COMPLETION: Pattern : typeof(<#type#>)
   // CHECK-CC3-NEXT: COMPLETION: union
@@ -201,7 +201,6 @@ void foo() {
   // CHECK-CC4-NEXT: COMPLETION: Pattern : [#bool#]true
   // CHECK-CC4-NEXT: COMPLETION: TYPEDEF : TYPEDEF
   // CHECK-CC4-NEXT: COMPLETION: Pattern : [#std::type_info#]typeid(<#expression-or-type#>)
-  // CHECK-CC4-NEXT: COMPLETION: Pattern : typename <#name#>
   // CHECK-CC4-NEXT: COMPLETION: Pattern : typeof <#expression#>
   // CHECK-CC4-NEXT: COMPLETION: Pattern : typeof(<#type#>)
   // CHECK-CC4-NEXT: COMPLETION: union
@@ -262,8 +261,7 @@ void foo() {
   // CHECK-NO-RTTI: COMPLETION: TYPEDEF : TYPEDEF
   // CHECK-NO-RTTI-NEXT: COMPLETION: Pattern : typedef <#type#> <#name#>;
   // CHECK-NO-RTTI-NOT: typeid
-  // CHECK-NO-RTTI: COMPLETION: Pattern : typename <#name#>
-  // CHECK-NO-RTTI-NEXT: COMPLETION: Pattern : typeof <#expression#>
+  // CHECK-NO-RTTI: COMPLETION: Pattern : typeof <#expression#>
   // CHECK-NO-RTTI-NEXT: COMPLETION: Pattern : typeof(<#type#>)
   // CHECK-NO-RTTI-NEXT: COMPLETION: union
   // CHECK-NO-RTTI-NEXT: COMPLETION: unsigned
