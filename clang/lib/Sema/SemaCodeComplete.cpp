@@ -1821,17 +1821,6 @@ static void AddTypeSpecifierResults(const LangOptions &LangOpts,
     Results.AddResult(Result("class", CCP_Type));
     Results.AddResult(Result("wchar_t", CCP_Type));
 
-    // uC++-specific
-    Results.AddResult(Result("_Coroutine", CCP_Type));
-    Builder.AddTypedTextChunk("_Coroutine");
-    Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
-    Builder.AddInformativeChunk("A Coroutine, as defined by uC++.");
-
-    Results.AddResult(Result("_Task", CCP_Type));
-    Builder.AddTypedTextChunk("_Task");
-    Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
-    Builder.AddInformativeChunk("A Coroutine, as defined by uC++.");
-
     // typename name
     Builder.AddTypedTextChunk("typename");
     Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
