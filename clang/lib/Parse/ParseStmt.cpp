@@ -321,10 +321,7 @@ Retry:
     return Actions.ActOnNullStmt(ConsumeToken(), HasLeadingEmptyMacro);
   }
   case tok::kw__Accept:
-    // llvm::errs() << "Test For Real\n";
-
-    return ParseAcceptStatement(TrailingElseLoc); // TODO: parse this properly
-
+    return ParseAcceptStatement(TrailingElseLoc);
   case tok::kw_if:                  // C99 6.8.4.1: if-statement
     return ParseIfStatement(TrailingElseLoc);
   case tok::kw_switch:              // C99 6.8.4.2: switch-statement

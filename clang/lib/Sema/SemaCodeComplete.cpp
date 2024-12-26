@@ -1820,6 +1820,7 @@ static void AddTypeSpecifierResults(const LangOptions &LangOpts,
         Result("bool", CCP_Type + (LangOpts.ObjC ? CCD_bool_in_ObjC : 0)));
     Results.AddResult(Result("class", CCP_Type));
     Results.AddResult(Result("_Coroutine", CCP_Type));
+    Results.AddResult(Result("_Accept", CCP_Type));
     Results.AddResult(Result("wchar_t", CCP_Type));
 
     // typename name
