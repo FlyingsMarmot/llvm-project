@@ -1645,7 +1645,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation ElseStmtLoc;
   StmtResult ElseStmt;
 
-  if (Tok.is(tok::kw_else)) {
+  if (Tok.is(tok::kw_else) || Tok.is(tok::kw_or)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
 
