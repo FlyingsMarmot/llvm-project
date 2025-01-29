@@ -859,6 +859,7 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
   StreamLogger Logger(llvm::errs(), LogLevel);
   LoggingSession LoggingSession(Logger);
   // Write some initial logs before we start doing any real work.
+  log("Custom binary");
   log("{0}", versionString());
   log("Features: {0}", featureString());
   log("PID: {0}", llvm::sys::Process::getProcessId());

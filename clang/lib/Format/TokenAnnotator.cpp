@@ -81,7 +81,7 @@ static bool isLambdaParameterList(const FormatToken *Left) {
 /// otherwise.
 static bool isKeywordWithCondition(const FormatToken &Tok) {
   return Tok.isOneOf(tok::kw_if, tok::kw_for, tok::kw_while, tok::kw_switch,
-                     tok::kw_constexpr, tok::kw_catch);
+                     tok::kw_constexpr, tok::kw_catch, tok::kw__CatchResume); //add catchresume here?
 }
 
 /// Returns \c true if the token starts a C++ attribute, \c false otherwise.
@@ -411,7 +411,7 @@ private:
                (!Line.InPPDirective || (Line.InMacroBody && !Scopes.empty()))) {
       bool IsForOrCatch =
           OpeningParen.Previous &&
-          OpeningParen.Previous->isOneOf(tok::kw_for, tok::kw_catch);
+          OpeningParen.Previous->isOneOf(tok::kw_for, tok::kw_catch, tok::kw__CatchResume);
       Contexts.back().IsExpression = !IsForOrCatch;
     }
 
@@ -4796,7 +4796,7 @@ bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
              spaceRequiredBeforeParens(Right);
     }
     if (!BeforeLeft || !BeforeLeft->isOneOf(tok::period, tok::arrow)) {
-      if (Left.isOneOf(tok::kw_try, Keywords.kw___except, tok::kw_catch)) {
+      if (Left.isOneOf(tok::kw_try, Keywords.kw___except, tok::kw_catch, tok::kw__CatchResume)) {
         return Style.SpaceBeforeParensOptions.AfterControlStatements ||
                spaceRequiredBeforeParens(Right);
       }

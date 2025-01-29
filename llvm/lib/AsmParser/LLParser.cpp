@@ -7951,7 +7951,9 @@ bool LLParser::parseLandingPad(Instruction *&Inst, PerFunctionState &PFS) {
 
   while (Lex.getKind() == lltok::kw_catch || Lex.getKind() == lltok::kw_filter){
     LandingPadInst::ClauseType CT;
-    if (EatIfPresent(lltok::kw_catch))
+    if (EatIfPresent(lltok::kw_catch) 
+      //|| EatIfPresent(lltok::kw_catchresume)
+    )
       CT = LandingPadInst::Catch;
     else if (EatIfPresent(lltok::kw_filter))
       CT = LandingPadInst::Filter;
