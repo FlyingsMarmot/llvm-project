@@ -1521,6 +1521,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Accept) && "Not an _Accept stmt!");
   SourceLocation AcceptLoc = ConsumeToken();  // eat the '_Accept'.
 
+  llvm::errs() << "entering _Accept stmt\n";
+
   bool IsConstexpr = false;
   bool IsConsteval = false;
   SourceLocation NotLocation;
@@ -1566,7 +1568,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   // while, for, and switch statements are local to the if, while, for, or
   // switch statement (including the controlled statement).
   //
-  ParseScope IfScope(this, Scope::DeclScope | Scope::ControlScope, C99orCXX);
+  ParseScope AcceptScope(this, Scope::DeclScope | Scope::ControlScope, C99orCXX);
 
   // Parse the condition.
   StmtResult InitStmt;
@@ -1630,23 +1632,31 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
   }
 
-  if (Tok.isNot(tok::kw_else))
+  if (Tok.isNot(tok::kw_or))
     MIChecker.Check();
 
   // Pop the 'if' scope if needed.
   InnerScope.Exit();
 
   // If it has an else, parse it.
-  SourceLocation ElseLoc;
-  SourceLocation ElseStmtLoc;
-  StmtResult ElseStmt;
+  SourceLocation OrLoc;
+  SourceLocation OrStmtLoc;
+  StmtResult OrStmt;
 
-  if (Tok.is(tok::kw_else) || Tok.is(tok::kw_or)) {
+  llvm::errs() << "apple123\n";
+  llvm::errs() << "Token: " << Tok.getName() << "\n";
+  if (Tok.is(tok::pipepipe)) {
+    llvm::errs() << "In _Accept Stmt, forcing pipepipe (or) to be recognized as or\n";
+    Tok.setKind(tok::kw_or);
+  }
+  if (Tok.is(tok::kw_or)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
 
-    ElseLoc = ConsumeToken();
-    ElseStmtLoc = Tok.getLocation();
+    llvm::errs() << "banana123\n";
+
+    OrLoc = ConsumeToken();
+    OrStmtLoc = Tok.getLocation();
 
     // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
     // there is no compound stmt.  C90 does not have this clause.  We only do
@@ -1660,7 +1670,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     ParseScope InnerScope(this, Scope::DeclScope, C99orCXX,
                           Tok.is(tok::l_brace));
 
-    MisleadingIndentationChecker MIChecker(*this, MSK_else, ElseLoc);
+    MisleadingIndentationChecker MIChecker(*this, MSK_else, OrLoc);
     bool ShouldEnter = ConstexprCondition && *ConstexprCondition;
     Sema::ExpressionEvaluationContext Context =
         Sema::ExpressionEvaluationContext::DiscardedStatement;
@@ -1672,9 +1682,9 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     EnterExpressionEvaluationContext PotentiallyDiscarded(
         Actions, Context, nullptr,
         Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
-    ElseStmt = ParseStatement();
+    OrStmt = ParseStatement();
 
-    if (ElseStmt.isUsable())
+    if (OrStmt.isUsable())
       MIChecker.Check();
 
     // Pop the 'else' scope if needed.
@@ -1687,14 +1697,14 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     Diag(InnerStatementTrailingElseLoc, diag::warn_dangling_else);
   }
 
-  IfScope.Exit();
+  AcceptScope.Exit();
 
   // If the then or else stmt is invalid and the other is valid (and present),
   // turn the invalid one into a null stmt to avoid dropping the other
   // part.  If both are invalid, return error.
-  if ((ThenStmt.isInvalid() && ElseStmt.isInvalid()) ||
-      (ThenStmt.isInvalid() && ElseStmt.get() == nullptr) ||
-      (ThenStmt.get() == nullptr && ElseStmt.isInvalid())) {
+  if ((ThenStmt.isInvalid() && OrStmt.isInvalid()) ||
+      (ThenStmt.isInvalid() && OrStmt.get() == nullptr) ||
+      (ThenStmt.get() == nullptr && OrStmt.isInvalid())) {
     // Both invalid, or one is invalid and other is non-present: return error.
     return StmtError();
   }
@@ -1711,8 +1721,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
                                                    << "{";
       return StmtError();
     }
-    if (!ElseStmt.isUnset() && !IsCompoundStatement(ElseStmt.get())) {
-      Diag(ElseLoc, diag::err_expected_after) << "else"
+    if (!OrStmt.isUnset() && !IsCompoundStatement(OrStmt.get())) {
+      Diag(OrLoc, diag::err_expected_after) << "else"
                                               << "{";
       return StmtError();
     }
@@ -1721,8 +1731,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   // Now if either are invalid, replace with a ';'.
   if (ThenStmt.isInvalid())
     ThenStmt = Actions.ActOnNullStmt(ThenStmtLoc);
-  if (ElseStmt.isInvalid())
-    ElseStmt = Actions.ActOnNullStmt(ElseStmtLoc);
+  if (OrStmt.isInvalid())
+    OrStmt = Actions.ActOnNullStmt(OrStmtLoc);
 
   IfStatementKind Kind = IfStatementKind::Ordinary;
   if (IsConstexpr)
@@ -1732,7 +1742,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
                                  : IfStatementKind::ConstevalNonNegated;
 
   return Actions.ActOnAcceptStmt(AcceptLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
-                             ThenStmt.get(), ElseLoc, ElseStmt.get());
+                             ThenStmt.get(), OrLoc, OrStmt.get());
 }
 
 /// ParseIfStatement
