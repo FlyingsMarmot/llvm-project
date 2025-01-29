@@ -1146,6 +1146,7 @@ IdentifierInfo *Parser::ParseObjCSelectorPiece(SourceLocation &SelectorLoc) {
   case tok::kw_template:
   case tok::kw_this:
   case tok::kw_throw:
+  case tok::kw__Throw:
   case tok::kw_true:
   case tok::kw_try:
   case tok::kw_typedef:
