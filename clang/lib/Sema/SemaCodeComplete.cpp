@@ -1821,6 +1821,8 @@ static void AddTypeSpecifierResults(const LangOptions &LangOpts,
     Results.AddResult(Result("class", CCP_Type));
     Results.AddResult(Result("_Coroutine", CCP_Type));
     Results.AddResult(Result("wchar_t", CCP_Type));
+    Results.AddResult(Result("throw", CCP_Type));
+    Results.AddResult(Result("_Throw", CCP_Type));
 
     // typename name
     Builder.AddTypedTextChunk("typename");
@@ -2311,6 +2313,9 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
       Builder.AddTextChunk("catch");
       Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
       Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+      Builder.AddTextChunk("_CatchResume");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
       Builder.AddPlaceholderChunk("declaration");
       Builder.AddChunk(CodeCompletionString::CK_RightParen);
       Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
@@ -2674,6 +2679,7 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
         // throw expression
         Builder.AddResultTypeChunk("void");
         Builder.AddTypedTextChunk("throw");
+        Builder.AddTypedTextChunk("_Throw");
         Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
         Builder.AddPlaceholderChunk("expression");
         Results.AddResult(Result(Builder.TakeString()));
