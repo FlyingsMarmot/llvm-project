@@ -27,6 +27,7 @@
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include <numeric>
 
 using namespace clang;
@@ -1950,8 +1951,11 @@ ExprResult Parser::ParseCXXBoolLiteral() {
 ///       throw-expression: [C++ 15]
 ///         'throw' assignment-expression[opt]
 ExprResult Parser::ParseThrowExpression() {
-  assert(Tok.isOneOf(tok::kw_throw, tok::kw__Throw) && "Not throw!");
+  assert(Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume) && "Not throw!");
+  bool isResumeStatement = Tok.is(tok::kw__Resume);
+  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ << "\n";
   SourceLocation ThrowLoc = ConsumeToken();           // Eat the throw token.
+  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
 
   // If the current token isn't the start of an assignment-expression,
   // then the expression is not present.  This handles things like:
@@ -1963,12 +1967,24 @@ ExprResult Parser::ParseThrowExpression() {
   case tok::r_brace:
   case tok::colon:
   case tok::comma:
+    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
     return Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, nullptr);
 
   default:
     ExprResult Expr(ParseAssignmentExpression());
+    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
     if (Expr.isInvalid()) return Expr;
-    return Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, Expr.get());
+    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
+    auto res = Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, Expr.get());
+    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
+
+    // If this is a resume statement, continue parsing
+    if(isResumeStatement && Tok.is(tok::kw__At)) {
+      // For now, let's just ignore everything until the semi
+      SkipUntil(tok::semi, Parser::StopAtSemi | Parser::StopBeforeMatch);
+    }
+
+    return res;
   }
 }
 
