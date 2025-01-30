@@ -176,7 +176,7 @@ ExprResult Parser::ParseAssignmentExpression(TypeCastState isTypeCast) {
     return ExprError();
   }
 
-  if (Tok.isOneOf(tok::kw_throw, tok::kw__Throw))
+  if (Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume))
     return ParseThrowExpression();
   if (Tok.is(tok::kw_co_yield))
     return ParseCoyieldExpression();
@@ -435,6 +435,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
   auto SavedType = PreferredType;
   while (true) {
     // Every iteration may rely on a preferred type for the whole expression.
+    llvm::errs() << "Next token is " << Tok.getName() << __LINE__ << "\n";
     PreferredType = SavedType;
     // If this token has a lower precedence than we are allowed to parse (e.g.
     // because we are called recursively, or because the token is not a binop),
