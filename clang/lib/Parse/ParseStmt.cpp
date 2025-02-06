@@ -1525,8 +1525,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Accept) && "Not an _Accept stmt!");
   SourceLocation AcceptLoc = ConsumeToken();  // eat the '_Accept'.
 
-  llvm::errs() << "entering _Accept stmt\n";
-
   bool IsConstexpr = false;
   bool IsConsteval = false;
   SourceLocation NotLocation;
@@ -1582,6 +1580,30 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   std::optional<bool> ConstexprCondition;
   if (!IsConsteval) {
 
+    // if (!Tok.is(tok::l_paren)) {
+    //   Diag(Tok.getLocation(), diag::err_expected) << tok::l_paren;
+    //   return StmtError();
+    // }
+    // LParen = ConsumeToken(); // Consume '('
+
+    // // Expect a single token inside parentheses
+    // if (Tok.is(tok::r_paren)) { // Empty parentheses not allowed
+    //   Diag(Tok.getLocation(), diag::err_expected_expression);
+    //   return StmtError();
+    // }
+
+    // Token SingleToken = Tok; // Capture the token
+    // SourceLocation TokenLoc = Tok.getLocation();
+
+    // ConsumeToken(); // Consume the single token
+
+
+    // // Expect ')'
+    // if (!Tok.is(tok::r_paren)) {
+    //   Diag(Tok.getLocation(), diag::err_expected) << tok::r_paren;
+    //   return StmtError();
+    // }
+    // RParen = ConsumeToken(); // Consume ')'
     if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
                                   IsConstexpr ? Sema::ConditionKind::ConstexprIf
                                               : Sema::ConditionKind::Boolean,
@@ -1647,17 +1669,15 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation OrStmtLoc;
   StmtResult OrStmt;
 
-  llvm::errs() << "apple123\n";
-  llvm::errs() << "Token: " << Tok.getName() << "\n";
+  // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
+  // TODO: In the future, we would like some context-specific lexing 
   if (Tok.is(tok::pipepipe)) {
-    llvm::errs() << "In _Accept Stmt, forcing pipepipe (or) to be recognized as or\n";
+    llvm::errs() << "In _Accept Stmt, forcing pipepipe (or) to be recognized as kw::tok_or\n";
     Tok.setKind(tok::kw_or);
   }
   if (Tok.is(tok::kw_or)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
-
-    llvm::errs() << "banana123\n";
 
     OrLoc = ConsumeToken();
     OrStmtLoc = Tok.getLocation();
