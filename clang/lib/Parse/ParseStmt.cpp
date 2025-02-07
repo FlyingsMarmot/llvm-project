@@ -1579,34 +1579,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation RParen;
   std::optional<bool> ConstexprCondition;
   if (!IsConsteval) {
-
-    // if (!Tok.is(tok::l_paren)) {
-    //   Diag(Tok.getLocation(), diag::err_expected) << tok::l_paren;
-    //   return StmtError();
-    // }
-    // LParen = ConsumeToken(); // Consume '('
-
-    // // Expect a single token inside parentheses
-    // if (Tok.is(tok::r_paren)) { // Empty parentheses not allowed
-    //   Diag(Tok.getLocation(), diag::err_expected_expression);
-    //   return StmtError();
-    // }
-
-    // Token SingleToken = Tok; // Capture the token
-    // SourceLocation TokenLoc = Tok.getLocation();
-
-    // ConsumeToken(); // Consume the single token
-
-
-    // // Expect ')'
-    // if (!Tok.is(tok::r_paren)) {
-    //   Diag(Tok.getLocation(), diag::err_expected) << tok::r_paren;
-    //   return StmtError();
-    // }
-    // RParen = ConsumeToken(); // Consume ')'
     if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
-                                  IsConstexpr ? Sema::ConditionKind::ConstexprIf
-                                              : Sema::ConditionKind::Boolean,
+                                  Sema::ConditionKind::ACCEPT,
                                   LParen, RParen))
       return StmtError();
 
