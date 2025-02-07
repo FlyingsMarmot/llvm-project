@@ -1972,16 +1972,16 @@ ExprResult Parser::ParseThrowExpression() {
 
   default:
     ExprResult Expr(ParseAssignmentExpression());
-    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
     if (Expr.isInvalid()) return Expr;
-    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
     auto res = Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, Expr.get());
-    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
 
     // If this is a resume statement, continue parsing
     if(isResumeStatement && Tok.is(tok::kw__At)) {
-      // For now, let's just ignore everything until the semi
-      SkipUntil(tok::semi, Parser::StopAtSemi | Parser::StopBeforeMatch);
+      // Eat the _At token
+      ConsumeToken();
+      // Parse the expression following the _At token
+      Expr = ParseAssignmentExpression();
+      res = Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, Expr.get());
     }
 
     return res;
