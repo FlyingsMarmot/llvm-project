@@ -3161,6 +3161,8 @@ TypeWithKeyword::getKeywordForTypeSpec(unsigned TypeSpec) {
     return ElaboratedTypeKeyword::Typename;
   case TST_coroutine:
     return ElaboratedTypeKeyword::Coroutine;
+  case TST_monitor:
+    return ElaboratedTypeKeyword::Monitor;
   case TST_class:
     return ElaboratedTypeKeyword::Class;
   case TST_struct:
@@ -3179,6 +3181,8 @@ TypeWithKeyword::getTagTypeKindForTypeSpec(unsigned TypeSpec) {
   switch(TypeSpec) {
   case TST_coroutine: 
     return TagTypeKind::Coroutine;
+  case TST_monitor:
+    return TagTypeKind::Monitor;
   case TST_class:
     return TagTypeKind::Class;
   case TST_struct:
@@ -3201,6 +3205,8 @@ TypeWithKeyword::getKeywordForTagTypeKind(TagTypeKind Kind) {
     return ElaboratedTypeKeyword::Class;
   case TagTypeKind::Coroutine:
     return ElaboratedTypeKeyword::Coroutine;
+  case TagTypeKind::Monitor:
+    return ElaboratedTypeKeyword::Monitor;
   case TagTypeKind::Struct:
     return ElaboratedTypeKeyword::Struct;
   case TagTypeKind::Interface:
@@ -3220,6 +3226,8 @@ TypeWithKeyword::getTagTypeKindForKeyword(ElaboratedTypeKeyword Keyword) {
     return TagTypeKind::Class;
   case ElaboratedTypeKeyword::Coroutine:
     return TagTypeKind::Coroutine;
+  case ElaboratedTypeKeyword::Monitor:
+    return TagTypeKind::Monitor;
   case ElaboratedTypeKeyword::Struct:
     return TagTypeKind::Struct;
   case ElaboratedTypeKeyword::Interface:
@@ -3243,6 +3251,7 @@ TypeWithKeyword::KeywordIsTagTypeKind(ElaboratedTypeKeyword Keyword) {
     return false;
   case ElaboratedTypeKeyword::Class:
   case ElaboratedTypeKeyword::Coroutine:
+  case ElaboratedTypeKeyword::Monitor:
   case ElaboratedTypeKeyword::Struct:
   case ElaboratedTypeKeyword::Interface:
   case ElaboratedTypeKeyword::Union:
@@ -3270,6 +3279,8 @@ StringRef TypeWithKeyword::getKeywordName(ElaboratedTypeKeyword Keyword) {
     return "enum";
   case ElaboratedTypeKeyword::Coroutine:
     return "_Coroutine";
+  case ElaboratedTypeKeyword::Monitor:
+    return "_Monitor";
   }
 
   llvm_unreachable("Unknown elaborated type keyword.");
