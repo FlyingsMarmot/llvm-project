@@ -2777,14 +2777,11 @@ StmtResult Parser::ParseCXXCatchBlock(bool FnCatch) {
 
   // exception-declaration is equivalent to '...' or a parameter-declaration
   // without default arguments.
-  llvm::errs() << "Current token is " << Tok.getName() << "\n";
   Decl *ExceptionDecl = nullptr;
   if (is_catchresume) {
-    // llvm::errs() << "CatchResume Case" << "\n";
-    // skip/consume everything inside the () of '_CatchResume (<expr)
+    // skip/consume everything inside the () of '_CatchResume ( )`
     // we can maybe remove this case later
     SkipUntil(tok::r_paren, Parser::StopAtSemi | Parser::StopBeforeMatch);
-    // llvm::errs() << "Current token is " << Tok.getName() << "\n";
   }
   else if (Tok.isNot(tok::ellipsis)) { // Token is catchs
     ParsedAttributes Attributes(AttrFactory);
@@ -2798,7 +2795,7 @@ StmtResult Parser::ParseCXXCatchBlock(bool FnCatch) {
     Declarator ExDecl(DS, Attributes, DeclaratorContext::CXXCatch);
     ParseDeclarator(ExDecl);
     ExceptionDecl = Actions.ActOnExceptionDeclarator(getCurScope(), ExDecl);
-  } else // eplisis '...'
+  } else
     ConsumeToken();
 
   T.consumeClose();
