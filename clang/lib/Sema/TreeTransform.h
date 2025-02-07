@@ -1453,7 +1453,7 @@ public:
     return getSema().ActOnWhileStmt(WhileLoc, LParenLoc, Cond, RParenLoc, Body);
   }
   
-  /// Build a new while statement.
+  /// Build a new when statement.
   ///
   /// By default, performs semantic analysis to build the new statement.
   /// Subclasses may override this routine to provide different behavior.
