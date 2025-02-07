@@ -1642,7 +1642,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
   // TODO: In the future, we would like some context-specific lexing 
   if (Tok.is(tok::pipepipe)) {
-    llvm::errs() << "In _Accept Stmt, forcing pipepipe (or) to be recognized as kw::tok_or\n";
     Tok.setKind(tok::kw_or);
   }
   if (Tok.is(tok::kw_or)) {
