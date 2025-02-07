@@ -3124,6 +3124,8 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
         TagName="coroutine" ; FixitTagName = "coroutine "; TagKind=tok::kw__Coroutine; break;
       case DeclSpec::TST_task:
         TagName="task" ; FixitTagName = "task "; TagKind=tok::kw__Task; break;
+      case DeclSpec::TST_monitor:
+        TagName="monitor" ; FixitTagName = "monitor "; TagKind=tok::kw__Monitor; break;
     }
 
     if (TagName) {
