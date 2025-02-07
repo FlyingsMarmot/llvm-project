@@ -6862,6 +6862,9 @@ enum class ElaboratedTypeKeyword {
   /// The "Coroutine" keyword also introduces elaborated-type specifier
   Coroutine,
 
+  /// The "Monitor" keyword also introduces elaborated-type specifier
+  Monitor,
+
   /// No keyword precedes the qualified type name.
   None
 };
@@ -6884,7 +6887,10 @@ enum class TagTypeKind {
   Enum,
 
   /// The "_Coroutine" keyword.
-  Coroutine
+  Coroutine,
+
+  /// The "_Monitor" keyword
+  Monitor
 };
 
 /// A helper class for Type nodes having an ElaboratedTypeKeyword.

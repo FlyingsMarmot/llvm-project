@@ -1820,6 +1820,7 @@ static void AddTypeSpecifierResults(const LangOptions &LangOpts,
         Result("bool", CCP_Type + (LangOpts.ObjC ? CCD_bool_in_ObjC : 0)));
     Results.AddResult(Result("class", CCP_Type));
     Results.AddResult(Result("_Coroutine", CCP_Type));
+    Results.AddResult(Result("_Monitor", CCP_Type));
     Results.AddResult(Result("wchar_t", CCP_Type));
 
     // typename name
@@ -2034,8 +2035,8 @@ static const char *GetCompletionTypeString(QualType T, ASTContext &Context,
           case TagTypeKind::Interface:
             return "__interface <anonymous>";
           case TagTypeKind::Class:
-            return "class <anonymous>";
           case TagTypeKind::Coroutine:
+          case TagTypeKind::Monitor:
             return "class <anonymous>";
           case TagTypeKind::Union:
             return "union <anonymous>";
@@ -4191,6 +4192,7 @@ CXCursorKind clang::getCursorKindForDecl(const Decl *D) {
         return CXCursor_StructDecl;
       case TagTypeKind::Class:
       case TagTypeKind::Coroutine:
+      case TagTypeKind::Monitor:
         return CXCursor_ClassDecl;
       case TagTypeKind::Union:
         return CXCursor_UnionDecl;
@@ -4544,7 +4546,8 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
     if (getLangOpts().CPlusPlus11 &&
         (DS.getTypeSpecType() == DeclSpec::TST_class ||
          DS.getTypeSpecType() == DeclSpec::TST_struct || 
-         DS.getTypeSpecType() == DeclSpec::TST_coroutine))
+         DS.getTypeSpecType() == DeclSpec::TST_coroutine ||
+         DS.getTypeSpecType() == DeclSpec::TST_monitor))
       Results.AddResult("final");
 
     if (AllowNonIdentifiers) {
@@ -5935,6 +5938,7 @@ void SemaCodeCompletion::CodeCompleteTag(Scope *S, unsigned TagSpec) {
   case DeclSpec::TST_struct:
   case DeclSpec::TST_class:
   case DeclSpec::TST_coroutine:
+  case DeclSpec::TST_monitor:
   case DeclSpec::TST_interface:
     Filter = &ResultBuilder::IsClassOrStruct;
     ContextKind = CodeCompletionContext::CCC_ClassOrStructTag;
