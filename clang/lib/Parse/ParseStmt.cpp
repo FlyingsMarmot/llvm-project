@@ -559,12 +559,10 @@ Retry:
 StmtResult Parser::ParseExprStatement(ParsedStmtContext StmtCtx) {
   // If a case keyword is missing, this is where it should be inserted.
   Token OldToken = Tok;
-  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ << "\n";
   ExprStatementTokLoc = Tok.getLocation();
 
   // expression[opt] ';'
   ExprResult Expr(ParseExpression());
-  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ << "\n";
   if (Expr.isInvalid()) {
     // If the expression is invalid, skip ahead to the next semicolon or '}'.
     // Not doing this opens us up to the possibility of infinite loops if
@@ -587,13 +585,11 @@ StmtResult Parser::ParseExprStatement(ParsedStmtContext StmtCtx) {
   }
 
   Token *CurTok = nullptr;
-  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ << "\n";
   // Note we shouldn't eat the token since the callback needs it.
   if (Tok.is(tok::annot_repl_input_end))
     CurTok = &Tok;
   else
     // Otherwise, eat the semicolon.
-    llvm::errs() << "Here" << "\n";
     ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
 
   StmtResult R = handleExprStmt(Expr, StmtCtx);
@@ -2783,11 +2779,11 @@ StmtResult Parser::ParseCXXCatchBlock(bool FnCatch) {
 
   Decl *ExceptionDecl = nullptr;
   if (is_catchresume) {
-    // skip/consume everything inside the () of '_CatchResume (<expr)
+    // skip/consume everything inside the () of '_CatchResume (<expr>)`
     // we can maybe remove this case later
     SkipUntil(tok::r_paren, Parser::StopAtSemi | Parser::StopBeforeMatch);
   }
-  else if (Tok.isNot(tok::ellipsis)) { // Token is catch
+  else if (Tok.isNot(tok::ellipsis)) {
     ParsedAttributes Attributes(AttrFactory);
     MaybeParseCXX11Attributes(Attributes);
 
@@ -2799,7 +2795,7 @@ StmtResult Parser::ParseCXXCatchBlock(bool FnCatch) {
     Declarator ExDecl(DS, Attributes, DeclaratorContext::CXXCatch);
     ParseDeclarator(ExDecl);
     ExceptionDecl = Actions.ActOnExceptionDeclarator(getCurScope(), ExDecl);
-  } else // eplisis '...'
+  } else
     ConsumeToken();
 
   T.consumeClose();

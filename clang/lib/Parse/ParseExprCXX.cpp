@@ -1953,9 +1953,7 @@ ExprResult Parser::ParseCXXBoolLiteral() {
 ExprResult Parser::ParseThrowExpression() {
   assert(Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume) && "Not throw!");
   bool isResumeStatement = Tok.is(tok::kw__Resume);
-  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ << "\n";
   SourceLocation ThrowLoc = ConsumeToken();           // Eat the throw token.
-  llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
 
   // If the current token isn't the start of an assignment-expression,
   // then the expression is not present.  This handles things like:
@@ -1967,7 +1965,6 @@ ExprResult Parser::ParseThrowExpression() {
   case tok::r_brace:
   case tok::colon:
   case tok::comma:
-    llvm::errs() << "Current token is " << Tok.getName() << __LINE__ <<"\n";
     return Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, nullptr);
 
   default:

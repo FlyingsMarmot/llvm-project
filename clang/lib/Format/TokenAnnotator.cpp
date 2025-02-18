@@ -411,8 +411,7 @@ private:
     } else if (!Line.MustBeDeclaration &&
                (!Line.InPPDirective || (Line.InMacroBody && !Scopes.empty()))) {
       bool IsForOrCatch = OpeningParen.Previous &&
-                          OpeningParen.Previous->isOneOf(
-                              tok::kw_for, tok::kw_catch, tok::kw__CatchResume);
+                          OpeningParen.Previous->isOneOf(tok::kw_for, tok::kw_catch, tok::kw__CatchResume);
       Contexts.back().IsExpression = !IsForOrCatch;
     }
 

@@ -435,7 +435,6 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
   auto SavedType = PreferredType;
   while (true) {
     // Every iteration may rely on a preferred type for the whole expression.
-    llvm::errs() << "Next token is " << Tok.getName() << __LINE__ << "\n";
     PreferredType = SavedType;
     // If this token has a lower precedence than we are allowed to parse (e.g.
     // because we are called recursively, or because the token is not a binop),
