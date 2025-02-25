@@ -179,7 +179,6 @@ StmtResult Parser::ParseStatementOrDeclarationAfterAttributes(
     StmtVector &Stmts, ParsedStmtContext StmtCtx,
     SourceLocation *TrailingElseLoc, ParsedAttributes &CXX11Attrs,
     ParsedAttributes &GNUAttrs) {
-  llvm::errs() << "ParseStatementOrDeclarationAfterAttributes\n";
   const char *SemiError = nullptr;
   StmtResult Res;
   SourceLocation GNUAttributeLoc;
@@ -1750,7 +1749,6 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
 
 
 StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
-  llvm::errs() << "Parsing _When statement\n";
   assert(Tok.is(tok::kw__When) && "Not a _When stmt!");
   SourceLocation WhenLoc = ConsumeToken(); // Eat `_When`
 
