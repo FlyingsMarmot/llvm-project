@@ -1730,9 +1730,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     TagType = DeclSpec::TST_coroutine;
   else if (TagTokKind == tok::kw__Task)
       TagType = DeclSpec::TST_task;
-  else if (TagTokKind == tok::kw__Monitor) {
-    TagType = DeclSpec::TST_monitor;
-  }
+  else if (TagTokKind == tok::kw__Monitor)
+      TagType = DeclSpec::TST_monitor;
     
   else {
     assert(TagTokKind == tok::kw_union && "Not a class specifier");

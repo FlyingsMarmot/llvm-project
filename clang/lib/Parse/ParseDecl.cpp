@@ -4692,6 +4692,7 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw_class:
     case tok::kw__Coroutine:
     case tok::kw__Task:
+    case tok::kw__Monitor:
     case tok::kw_struct:
     case tok::kw___interface:
     case tok::kw_union: {
