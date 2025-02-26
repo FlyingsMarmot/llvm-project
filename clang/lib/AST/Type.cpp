@@ -3165,6 +3165,8 @@ TypeWithKeyword::getKeywordForTypeSpec(unsigned TypeSpec) {
     return ElaboratedTypeKeyword::Task;
   case TST_exception:
     return ElaboratedTypeKeyword::Exception;
+  case TST_monitor:
+    return ElaboratedTypeKeyword::Monitor;
   case TST_class:
     return ElaboratedTypeKeyword::Class;
   case TST_struct:
@@ -3187,6 +3189,8 @@ TypeWithKeyword::getTagTypeKindForTypeSpec(unsigned TypeSpec) {
     return TagTypeKind::Task;
   case TST_exception: 
     return TagTypeKind::Exception;
+  case TST_monitor:
+    return TagTypeKind::Monitor;
   case TST_class:
     return TagTypeKind::Class;
   case TST_struct:
@@ -3213,6 +3217,8 @@ TypeWithKeyword::getKeywordForTagTypeKind(TagTypeKind Kind) {
     return ElaboratedTypeKeyword::Task;
   case TagTypeKind::Exception:
     return ElaboratedTypeKeyword::Exception;
+  case TagTypeKind::Monitor:
+    return ElaboratedTypeKeyword::Monitor;
   case TagTypeKind::Struct:
     return ElaboratedTypeKeyword::Struct;
   case TagTypeKind::Interface:
@@ -3236,6 +3242,8 @@ TypeWithKeyword::getTagTypeKindForKeyword(ElaboratedTypeKeyword Keyword) {
     return TagTypeKind::Task;
   case ElaboratedTypeKeyword::Exception:
     return TagTypeKind::Exception;
+  case ElaboratedTypeKeyword::Monitor:
+    return TagTypeKind::Monitor;
   case ElaboratedTypeKeyword::Struct:
     return TagTypeKind::Struct;
   case ElaboratedTypeKeyword::Interface:
@@ -3261,6 +3269,7 @@ TypeWithKeyword::KeywordIsTagTypeKind(ElaboratedTypeKeyword Keyword) {
   case ElaboratedTypeKeyword::Coroutine:
   case ElaboratedTypeKeyword::Exception:
   case ElaboratedTypeKeyword::Task:
+  case ElaboratedTypeKeyword::Monitor:
   case ElaboratedTypeKeyword::Struct:
   case ElaboratedTypeKeyword::Interface:
   case ElaboratedTypeKeyword::Union:
@@ -3292,6 +3301,8 @@ StringRef TypeWithKeyword::getKeywordName(ElaboratedTypeKeyword Keyword) {
     return "_Task";
   case ElaboratedTypeKeyword::Exception:
     return "_Exception";
+  case ElaboratedTypeKeyword::Monitor:
+    return "_Monitor";
   }
 
   llvm_unreachable("Unknown elaborated type keyword.");

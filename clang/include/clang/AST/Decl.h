@@ -3772,7 +3772,8 @@ public:
     return getTagKind() == TagTypeKind::Class || 
            getTagKind() == TagTypeKind::Coroutine || 
            getTagKind() == TagTypeKind::Task || 
-           getTagKind() == TagTypeKind::Exception; 
+           getTagKind() == TagTypeKind::Exception ||
+           getTagKind() == TagTypeKind::Monitor; 
   }
   bool isUnion() const { return getTagKind() == TagTypeKind::Union; }
   bool isEnum() const { return getTagKind() == TagTypeKind::Enum; }

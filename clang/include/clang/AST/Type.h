@@ -6864,6 +6864,9 @@ enum class ElaboratedTypeKeyword {
 
   /// The "Task" keyword also introduces elaborated-type specifier
   Task,
+  
+  /// The "Monitor" keyword also introduces elaborated-type specifier
+  Monitor,
 
   /// The "Exception" keyword also introduces elaborated-type specifier
   Exception,
@@ -6896,7 +6899,10 @@ enum class TagTypeKind {
   Task,
 
   /// The "Exception" keyword.
-  Exception
+  Exception,
+
+  /// The "_Monitor" keyword
+  Monitor
 };
 
 /// A helper class for Type nodes having an ElaboratedTypeKeyword.

@@ -82,6 +82,7 @@ namespace clang {
     TST_exception,         // uC++ Exception type
     TST_task,              // uC++ Task type
     TST_coroutine,         // uC++ Coroutine type
+    TST_monitor,           // uC++ Monitor type
     TST_class,             // C++ class type
     TST_interface,         // C++ (Microsoft-specific) __interface type
     TST_typename,          // Typedef, C++ class-name or enum name, etc.

@@ -115,6 +115,7 @@ SymbolInfo index::getSymbolInfo(const Decl *D) {
     case TagTypeKind::Coroutine:
     case TagTypeKind::Task:
     case TagTypeKind::Exception:
+    case TagTypeKind::Monitor:
       Info.Kind = SymbolKind::Class;
       Info.Lang = SymbolLanguage::CXX;
       break;
