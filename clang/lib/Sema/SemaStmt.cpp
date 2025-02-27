@@ -930,6 +930,8 @@ public:
 };
 }
 
+// thenStmt should be what follows after _Accept ( condition ) {} -> {} is the "thenStmt" 
+// ElseLoc, *elseStmt -> "or" in the case for _Accept
 StmtResult Sema::ActOnAcceptStmt(SourceLocation AcceptLoc, IfStatementKind StatementKind,
                          SourceLocation LParenLoc, Stmt *InitStmt,
                          ConditionResult Cond, SourceLocation RParenLoc,
@@ -949,8 +951,14 @@ StmtResult Sema::ActOnAcceptStmt(SourceLocation AcceptLoc, IfStatementKind State
       !Diags.isIgnored(diag::warn_comma_operator, CondExpr->getExprLoc()))
     CommaVisitor(*this).Visit(CondExpr);
 
-  if (!ConstevalOrNegatedConsteval && !elseStmt)
-    DiagnoseEmptyStmtBody(RParenLoc, thenStmt, diag::warn_empty_accept_body);
+  // TODO: Known issue -> this should warn for `_Accept ( condition ) {};` but doesn't 
+  if (!ConstevalOrNegatedConsteval && !elseStmt) {
+    // try to cast the {} block 
+    if (auto *CS = dyn_cast<CompoundStmt>(thenStmt)) {
+      if (CS->body_empty()) // Check if the block `{}` is empty
+        DiagnoseEmptyStmtBody(RParenLoc, thenStmt, diag::warn_empty_accept_body);
+      }
+  }
 
   if (ConstevalOrNegatedConsteval ||
       StatementKind == IfStatementKind::Constexpr) {
