@@ -176,7 +176,7 @@ ExprResult Parser::ParseAssignmentExpression(TypeCastState isTypeCast) {
     return ExprError();
   }
 
-  if (Tok.isOneOf(tok::kw_throw, tok::kw__Throw))
+  if (Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume))
     return ParseThrowExpression();
   if (Tok.is(tok::kw_co_yield))
     return ParseCoyieldExpression();
@@ -408,6 +408,7 @@ bool Parser::isNotExpressionStart() {
   if (K == tok::l_brace || K == tok::r_brace  ||
       K == tok::kw_for  || K == tok::kw_while ||
       K == tok::kw_if   || K == tok::kw_else  ||
+      K == tok::kw__Accept || K == tok::kw_or ||
       K == tok::kw_goto || K == tok::kw_try)
     return true;
   // If this is a decl-specifier, we can't be at the start of an expression.
