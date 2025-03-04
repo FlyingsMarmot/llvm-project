@@ -33,6 +33,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SourceMgr.h"
@@ -49,6 +50,14 @@
 
 namespace clang {
 namespace clangd {
+
+std::string ClangdBinaryPath;
+void initializeClangdBinaryPath(const char *argv0) {
+    void *mainAddr = (void *)(uintptr_t)&initializeClangdBinaryPath; // can be any function
+    ClangdBinaryPath = llvm::sys::fs::getMainExecutable(argv0, mainAddr);
+    llvm::errs() << "Clangd Binary Path: " << ClangdBinaryPath << "\n";
+}
+
 namespace {
 
 const char *getDiagnosticCode(unsigned ID) {
@@ -211,6 +220,8 @@ const char *getMainFileRange(const Diag &D, const SourceManager &SM,
 //   - for errors in template instantiation, use the instantiation location
 // In both cases, add the original header location as a note.
 bool tryMoveToMainFile(Diag &D, FullSourceLoc DiagLoc) {
+
+  llvm::errs() << "bin path " << ClangdBinaryPath << "\n";
   const SourceManager &SM = DiagLoc.getManager();
   DiagLoc = DiagLoc.getExpansionLoc();
   Range R;

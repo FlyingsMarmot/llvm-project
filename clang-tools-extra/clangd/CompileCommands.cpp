@@ -208,7 +208,7 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
   std::filesystem::path homeDir = std::getenv("HOME"); 
   std::filesystem::path ucppIncludePath = homeDir / "vscode-clangd/uCPP/source/src/library";
   
-  log("DEBUG");
+  log("DEBUG: Pushing ucpp include path");
   log(ucppIncludePath.c_str());
   Cmd.push_back("-I" + ucppIncludePath.string());
   Cmd.push_back("-ferror-limit=0"); //"-ferror-limit=0"
