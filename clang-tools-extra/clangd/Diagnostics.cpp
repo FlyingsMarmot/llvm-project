@@ -43,7 +43,6 @@
 #include <set>
 #include <string>
 #include <tuple>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <filesystem>
@@ -218,6 +217,22 @@ bool tryMoveToMainFile(Diag &D, FullSourceLoc DiagLoc) {
   const char *Prefix = getMainFileRange(D, SM, DiagLoc, R);
   if (!Prefix)
     return false;
+
+  auto FID = SM.getFileID(DiagLoc);
+  std::optional<std::string> FilePath;
+  if (const auto FE = SM.getFileEntryRefForID(FID)) {
+    FilePath = getCanonicalPath(*FE, SM.getFileManager());
+  }
+  llvm::errs() << FilePath.value() << "\n";
+
+  std::filesystem::path homeDir = std::getenv("HOME"); 
+  std::filesystem::path uCPPLocation = homeDir / "vscode-clangd/uCPP/source/src/";
+
+  // If the file is part of uC++, completely ignore its diagnostics
+  if( !FilePath->empty() && FilePath.value().find(uCPPLocation) == 0) {
+    llvm::errs() << "Filtering main diag" << FilePath.value() << "\n";
+    return false;
+  }
 
   // Add a note that will point to real diagnostic.
   auto FE = *SM.getFileEntryRefForID(SM.getFileID(DiagLoc));
@@ -613,10 +628,6 @@ std::vector<Diag> StoreDiags::take(const clang::tidy::ClangTidyContext *Tidy) {
     setTags(Diag);
   }
 
-  llvm::erase_if(Output, [](const Diag &D) {
-    // Use your canonical path for uFuture.h.
-    return D.AbsFile.has_value() && !D.AbsFile->empty() && D.AbsFile->find("uFuture.h") != std::string::npos;
-  });
   // Deduplicate clang-tidy diagnostics -- some clang-tidy checks may emit
   // duplicated messages due to various reasons (e.g. the check doesn't handle
   // template instantiations well; clang-tidy alias checks).
@@ -720,35 +731,7 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
   }
 
   SourceManager &SM = Info.getSourceManager();
-  llvm::errs() << __LINE__ << "\n";
-  auto FID = SM.getFileID(Info.getLocation());
-  llvm::errs() << __LINE__ << "\n";
-  // Retrieve the file path
-  std::optional<std::string> FilePath;
-  if (const auto FE = SM.getFileEntryRefForID(FID)) {
-    FilePath = getCanonicalPath(*FE, SM.getFileManager());
-  }
-  llvm::errs() << __LINE__ << "\n";
 
-  std::unordered_set<std::string> uCPPHeaders = {
-    "uFuture.h",
-    "uPRNG.h"
-  };
-  std::filesystem::path homeDir = std::getenv("HOME"); 
-  std::filesystem::path uCPPLocation = homeDir / "vscode-clangd/uCPP/source/src/";
-
-  if( !FilePath->empty() && FilePath.value().find(uCPPLocation) == 0) { //&& FilePath->find("/home/f34lin/vscode-clangd/uCPP/source/src/library/uFuture.h") != std::string::npos
-    std::string FileName = std::filesystem::path(FilePath.value()).filename().string();
-
-    log("Processing:");
-    log(FilePath.value().c_str());
-    log(FileName.c_str());
-    log("Filtering");
-    // if(uCPPHeaders.find(FileName) != uCPPHeaders.end()) {
-    // }
-    return;
-  }
-  llvm::errs() << __LINE__ << "\n";
   auto FillDiagBase = [&](DiagBase &D) {
     fillNonLocationData(DiagLevel, Info, D);
 
