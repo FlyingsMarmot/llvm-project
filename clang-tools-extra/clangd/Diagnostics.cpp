@@ -220,8 +220,6 @@ const char *getMainFileRange(const Diag &D, const SourceManager &SM,
 //   - for errors in template instantiation, use the instantiation location
 // In both cases, add the original header location as a note.
 bool tryMoveToMainFile(Diag &D, FullSourceLoc DiagLoc) {
-
-  llvm::errs() << "bin path " << ClangdBinaryPath << "\n";
   const SourceManager &SM = DiagLoc.getManager();
   DiagLoc = DiagLoc.getExpansionLoc();
   Range R;
@@ -236,11 +234,11 @@ bool tryMoveToMainFile(Diag &D, FullSourceLoc DiagLoc) {
   }
   llvm::errs() << FilePath.value() << "\n";
 
-  std::filesystem::path homeDir = std::getenv("HOME"); 
-  std::filesystem::path uCPPLocation = homeDir / "vscode-clangd/uCPP/source/src/";
+  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path().string();
+  std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
 
   // If the file is part of uC++, completely ignore its diagnostics
-  if( !FilePath->empty() && FilePath.value().find(uCPPLocation) == 0) {
+  if( !FilePath->empty() && FilePath.value().find(uCPPLocation.string()) == 0) {
     llvm::errs() << "Filtering main diag" << FilePath.value() << "\n";
     return false;
   }
@@ -742,6 +740,24 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
   }
 
   SourceManager &SM = Info.getSourceManager();
+  auto FID = SM.getFileID(Info.getLocation());
+  // Retrieve the file path
+  std::optional<std::string> FilePath;
+  if (const auto FE = SM.getFileEntryRefForID(FID)) {
+    FilePath = getCanonicalPath(*FE, SM.getFileManager());
+  }
+
+  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
+  std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
+  llvm::errs() << "Checking " << uCPPLocation.string() << "\n";
+  if( !FilePath->empty() && FilePath.value().find(uCPPLocation.string()) == 0) {
+    std::string FileName = std::filesystem::path(FilePath.value()).filename().string();
+
+    log("Filtering:");
+    log(FilePath.value().c_str());
+    log(FileName.c_str());
+    return;
+  }
 
   auto FillDiagBase = [&](DiagBase &D) {
     fillNonLocationData(DiagLevel, Info, D);

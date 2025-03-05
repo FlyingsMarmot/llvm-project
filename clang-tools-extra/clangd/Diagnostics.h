@@ -180,6 +180,7 @@ private:
   llvm::DenseSet<std::pair<unsigned, unsigned>> IncludedErrorLocations;
 };
 
+extern std::string ClangdBinaryPath;
 // Function to initialize Clangd's binary path
 void initializeClangdBinaryPath(const char*);
 

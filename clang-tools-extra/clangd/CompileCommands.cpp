@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompileCommands.h"
+#include "Diagnostics.h"
 #include "Config.h"
 #include "support/Logger.h"
 #include "support/Trace.h"
@@ -28,6 +29,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
 #include <filesystem>
 #include <iterator>
@@ -204,10 +206,9 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
   trace::Span S("AdjustCompileFlags");
   
   // Add uCPP code to the include path
-
-  std::filesystem::path homeDir = std::getenv("HOME"); 
-  std::filesystem::path ucppIncludePath = homeDir / "vscode-clangd/uCPP/source/src/library";
   
+  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
+  std::filesystem::path ucppIncludePath = (extensionDirPath / "uCPP/source/src/library").string();
   log("DEBUG: Pushing ucpp include path");
   log(ucppIncludePath.c_str());
   Cmd.push_back("-I" + ucppIncludePath.string());
