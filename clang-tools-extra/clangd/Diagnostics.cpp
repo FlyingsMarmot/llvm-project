@@ -55,7 +55,6 @@ std::string ClangdBinaryPath;
 void initializeClangdBinaryPath(const char *argv0) {
     void *mainAddr = (void *)(uintptr_t)&initializeClangdBinaryPath; // can be any function
     ClangdBinaryPath = llvm::sys::fs::getMainExecutable(argv0, mainAddr);
-    llvm::errs() << "Clangd Binary Path: " << ClangdBinaryPath << "\n";
 }
 
 namespace {
@@ -232,14 +231,12 @@ bool tryMoveToMainFile(Diag &D, FullSourceLoc DiagLoc) {
   if (const auto FE = SM.getFileEntryRefForID(FID)) {
     FilePath = getCanonicalPath(*FE, SM.getFileManager());
   }
-  llvm::errs() << FilePath.value() << "\n";
 
   std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path().string();
   std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
 
   // If the file is part of uC++, completely ignore its diagnostics
   if( !FilePath->empty() && FilePath.value().find(uCPPLocation.string()) == 0) {
-    llvm::errs() << "Filtering main diag" << FilePath.value() << "\n";
     return false;
   }
 
@@ -749,13 +746,8 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
 
   std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
   std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
-  llvm::errs() << "Checking " << uCPPLocation.string() << "\n";
   if( !FilePath->empty() && FilePath.value().find(uCPPLocation.string()) == 0) {
     std::string FileName = std::filesystem::path(FilePath.value()).filename().string();
-
-    log("Filtering:");
-    log(FilePath.value().c_str());
-    log(FileName.c_str());
     return;
   }
 
