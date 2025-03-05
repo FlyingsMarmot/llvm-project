@@ -208,7 +208,7 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
   // Add uCPP code to the include path
   
   std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
-  std::filesystem::path ucppIncludePath = (extensionDirPath / "uCPP/source/src/library").string();
+  std::filesystem::path ucppIncludePath = (extensionDirPath / "uCPP/source/src/library");
   log("DEBUG: Pushing ucpp include path");
   log(ucppIncludePath.c_str());
   Cmd.push_back("-I" + ucppIncludePath.string());
