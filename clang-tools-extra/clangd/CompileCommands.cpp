@@ -213,10 +213,6 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
   log(ucppIncludePath.c_str());
   Cmd.push_back("-I" + ucppIncludePath.string());
   Cmd.push_back("-ferror-limit=0"); //"-ferror-limit=0"
-  
-  //Cmd.push_back("-I/home/f34lin/cpp_test/uCPP/source/src/library");
-
-
 
   // Most of the modifications below assumes the Cmd starts with a driver name.
   // We might consider injecting a generic driver name like "cc" or "c++", but
