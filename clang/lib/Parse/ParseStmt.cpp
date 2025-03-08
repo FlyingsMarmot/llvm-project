@@ -1647,7 +1647,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   if (Tok.is(tok::pipepipe)) {
     Tok.setKind(tok::kw_or);
   }
-  if (Tok.is(tok::kw_or)) {
+  if (Tok.is(tok::kw_or) || Tok.is(tok::kw__Else)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
 
@@ -1687,7 +1687,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     InnerScope.Exit();
   } else if (Tok.is(tok::code_completion)) {
     cutOffParsing();
-    Actions.CodeCompletion().CodeCompleteAfterIf(getCurScope(), IsBracedThen);
+    Actions.CodeCompletion().CodeCompleteAfterAccept(getCurScope(), IsBracedThen);
     return StmtError();
   } else if (InnerStatementTrailingElseLoc.isValid()) {
     Diag(InnerStatementTrailingElseLoc, diag::warn_dangling_else);
@@ -2001,7 +2001,11 @@ StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
 
   // IdentifierInfo *VarName = Tok.getIdentifierInfo();
   // SourceLocation VarLoc = ConsumeToken(); // Eat the variable name
-
+  SourceLocation ElseLoc;
+  if (Tok.is(tok::kw__Else)) {
+    ElseLoc = ConsumeToken();
+  }
+  
   if (Tok.isNot(tok::l_brace))
     return StmtError(Diag(Tok, diag::err_expected) << tok::l_brace);
 
@@ -2009,7 +2013,6 @@ StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
 
   if(Block.isInvalid())
     return Block;
-
   IdentifierInfo *VarName = nullptr;
   SourceLocation VarLoc;
   bool IsAccept = false;
