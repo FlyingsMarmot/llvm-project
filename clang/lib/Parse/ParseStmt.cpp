@@ -1524,32 +1524,13 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Accept) && "Not an _Accept stmt!");
   SourceLocation AcceptLoc = ConsumeToken();  // eat the '_Accept'.
 
-  bool IsConstexpr = false;
-  bool IsConsteval = false;
   SourceLocation NotLocation;
-  SourceLocation ConstevalLoc;
 
-  if (Tok.is(tok::kw_constexpr)) {
-    // C23 supports constexpr keyword, but only for object definitions.
-    if (getLangOpts().CPlusPlus) {
-      Diag(Tok, getLangOpts().CPlusPlus17 ? diag::warn_cxx14_compat_constexpr_if
-                                          : diag::ext_constexpr_if);
-      IsConstexpr = true;
-      ConsumeToken();
-    }
-  } else {
-    if (Tok.is(tok::exclaim)) {
-      NotLocation = ConsumeToken();
-    }
-
-    if (Tok.is(tok::kw_consteval)) {
-      Diag(Tok, getLangOpts().CPlusPlus23 ? diag::warn_cxx20_compat_consteval_if
-                                          : diag::ext_consteval_if);
-      IsConsteval = true;
-      ConstevalLoc = ConsumeToken();
-    }
+  if (Tok.is(tok::exclaim)) {
+    NotLocation = ConsumeToken();
   }
-  if (!IsConsteval && (NotLocation.isValid() || Tok.isNot(tok::l_paren))) {
+
+  if ((NotLocation.isValid() || Tok.isNot(tok::l_paren))) {
     Diag(Tok, diag::err_expected_lparen_after) << "_Accept";
     SkipUntil(tok::semi);
     return StmtError();
@@ -1577,15 +1558,11 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation LParen;
   SourceLocation RParen;
   std::optional<bool> ConstexprCondition;
-  if (!IsConsteval) {
-    if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
+  if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
                                   Sema::ConditionKind::ACCEPT,
                                   LParen, RParen))
-      return StmtError();
+    return StmtError();
 
-    if (IsConstexpr)
-      ConstexprCondition = Cond.getKnownValue();
-  }
 
   bool IsBracedThen = Tok.is(tok::l_brace);
 
@@ -1620,7 +1597,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     bool ShouldEnter = ConstexprCondition && !*ConstexprCondition;
     Sema::ExpressionEvaluationContext Context =
         Sema::ExpressionEvaluationContext::DiscardedStatement;
-    if (NotLocation.isInvalid() && IsConsteval) {
+    if (NotLocation.isInvalid()) {
       Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
       ShouldEnter = true;
     }
@@ -1670,7 +1647,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     bool ShouldEnter = ConstexprCondition && *ConstexprCondition;
     Sema::ExpressionEvaluationContext Context =
         Sema::ExpressionEvaluationContext::DiscardedStatement;
-    if (NotLocation.isValid() && IsConsteval) {
+    if (NotLocation.isValid()) {
       Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
       ShouldEnter = true;
     }
@@ -1705,25 +1682,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     return StmtError();
   }
 
-  if (IsConsteval) {
-    auto IsCompoundStatement = [](const Stmt *S) {
-      if (const auto *Outer = dyn_cast_if_present<AttributedStmt>(S))
-        S = Outer->getSubStmt();
-      return isa_and_nonnull<clang::CompoundStmt>(S);
-    };
-
-    if (!IsCompoundStatement(ThenStmt.get())) {
-      Diag(ConstevalLoc, diag::err_expected_after) << "consteval"
-                                                   << "{";
-      return StmtError();
-    }
-    if (!OrStmt.isUnset() && !IsCompoundStatement(OrStmt.get())) {
-      Diag(OrLoc, diag::err_expected_after) << "else"
-                                              << "{";
-      return StmtError();
-    }
-  }
-
   // Now if either are invalid, replace with a ';'.
   if (ThenStmt.isInvalid())
     ThenStmt = Actions.ActOnNullStmt(ThenStmtLoc);
@@ -1731,11 +1689,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     OrStmt = Actions.ActOnNullStmt(OrStmtLoc);
 
   IfStatementKind Kind = IfStatementKind::Ordinary;
-  if (IsConstexpr)
-    Kind = IfStatementKind::Constexpr;
-  else if (IsConsteval)
-    Kind = NotLocation.isValid() ? IfStatementKind::ConstevalNegated
-                                 : IfStatementKind::ConstevalNonNegated;
  
   return Actions.ActOnAcceptStmt(AcceptLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
                              ThenStmt.get(), OrLoc, OrStmt.get());
