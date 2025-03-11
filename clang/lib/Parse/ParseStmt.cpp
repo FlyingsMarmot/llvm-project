@@ -1524,13 +1524,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Accept) && "Not an _Accept stmt!");
   SourceLocation AcceptLoc = ConsumeToken();  // eat the '_Accept'.
 
-  SourceLocation NotLocation;
 
-  if (Tok.is(tok::exclaim)) {
-    NotLocation = ConsumeToken();
-  }
-
-  if ((NotLocation.isValid() || Tok.isNot(tok::l_paren))) {
+  if (Tok.isNot(tok::l_paren)) {
     Diag(Tok, diag::err_expected_lparen_after) << "_Accept";
     SkipUntil(tok::semi);
     return StmtError();
@@ -1557,7 +1552,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   Sema::ConditionResult Cond;
   SourceLocation LParen;
   SourceLocation RParen;
-  std::optional<bool> ConstexprCondition;
   if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
                                   Sema::ConditionKind::ACCEPT,
                                   LParen, RParen))
@@ -1594,17 +1588,13 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation InnerStatementTrailingElseLoc;
   StmtResult ThenStmt;
   {
-    bool ShouldEnter = ConstexprCondition && !*ConstexprCondition;
     Sema::ExpressionEvaluationContext Context =
         Sema::ExpressionEvaluationContext::DiscardedStatement;
-    if (NotLocation.isInvalid()) {
       Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-      ShouldEnter = true;
-    }
 
     EnterExpressionEvaluationContext PotentiallyDiscarded(
         Actions, Context, nullptr,
-        Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
+        Sema::ExpressionEvaluationContextRecord::EK_Other, true);
     ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
   }
 
@@ -1644,17 +1634,13 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
                           Tok.is(tok::l_brace));
 
     MisleadingIndentationChecker MIChecker(*this, MSK_else, OrLoc);
-    bool ShouldEnter = ConstexprCondition && *ConstexprCondition;
     Sema::ExpressionEvaluationContext Context =
         Sema::ExpressionEvaluationContext::DiscardedStatement;
-    if (NotLocation.isValid()) {
-      Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-      ShouldEnter = true;
-    }
+    Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
 
     EnterExpressionEvaluationContext PotentiallyDiscarded(
         Actions, Context, nullptr,
-        Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
+        Sema::ExpressionEvaluationContextRecord::EK_Other, true);
     OrStmt = ParseStatement();
 
     if (OrStmt.isUsable())
