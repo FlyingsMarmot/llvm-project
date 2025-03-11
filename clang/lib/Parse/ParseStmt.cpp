@@ -1959,13 +1959,20 @@ StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
     ElseLoc = ConsumeToken();
   }
   
-  if (Tok.isNot(tok::l_brace))
-    return StmtError(Diag(Tok, diag::err_expected) << tok::l_brace);
+  StmtResult Block;
 
-  StmtResult Block(ParseCompoundStatement());
+  // Parse block statement if `{` is found
+  if (Tok.is(tok::l_brace)) {
+    Block = ParseCompoundStatement();
+    if (Block.isInvalid())
+      return Block;
+  } else {
+    // Allow an empty or single statement
+    Block = ParseStatement();
+    if (Block.isInvalid())
+      Block = Actions.ActOnNullStmt(WhenLoc);
+  }
 
-  if(Block.isInvalid())
-    return Block;
   IdentifierInfo *VarName = nullptr;
   SourceLocation VarLoc;
   bool IsAccept = false;
