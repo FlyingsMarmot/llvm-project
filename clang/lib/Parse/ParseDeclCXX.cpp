@@ -3767,7 +3767,7 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
   assert((TagType == DeclSpec::TST_struct ||
           TagType == DeclSpec::TST_interface ||
           TagType == DeclSpec::TST_union || TagType == DeclSpec::TST_class ||
-          TagType == DeclSpec::TST_coroutine || TagType == DeclSpec::TST_task
+          TagType == DeclSpec::TST_coroutine || TagType == DeclSpec::TST_task ||
           TagType == DeclSpec::TST_exception || TagType == DeclSpec::TST_monitor)
           && "Invalid TagType!");
 
