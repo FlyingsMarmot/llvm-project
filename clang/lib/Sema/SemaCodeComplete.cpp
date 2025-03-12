@@ -2383,9 +2383,11 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
     if (Results.includeCodePatterns()) {
       // _When (condition) { statements }
       Builder.AddTypedTextChunk("_When");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
       Builder.AddChunk(CodeCompletionString::CK_LeftParen);
       Builder.AddPlaceholderChunk("condition");
       Builder.AddChunk(CodeCompletionString::CK_RightParen);
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
       Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
       Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
       Builder.AddPlaceholderChunk("statements");

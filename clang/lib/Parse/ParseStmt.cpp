@@ -1533,18 +1533,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
   bool C99orCXX = getLangOpts().C99 || getLangOpts().CPlusPlus;
 
-  // C99 6.8.4p3 - In C99, the if statement is a block.  This is not
-  // the case for C90.
-  //
-  // C++ 6.4p3:
-  // A name introduced by a declaration in a condition is in scope from its
-  // point of declaration until the end of the substatements controlled by the
-  // condition.
-  // C++ 3.3.2p4:
-  // Names declared in the for-init-statement, and in the condition of if,
-  // while, for, and switch statements are local to the if, while, for, or
-  // switch statement (including the controlled statement).
-  //
   ParseScope AcceptScope(this, Scope::DeclScope | Scope::ControlScope, C99orCXX);
 
   // Parse the condition.
@@ -1560,14 +1548,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
   bool IsBracedThen = Tok.is(tok::l_brace);
 
-  // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
-  // there is no compound stmt.  C90 does not have this clause.  We only do this
-  // if the body isn't a compound statement to avoid push/pop in common cases.
-  //
-  // C++ 6.4p1:
-  // The substatement in a selection-statement (each substatement, in the else
-  // form of the if statement) implicitly defines a local scope.
-  //
   // For C++ we create a scope for the condition and a new scope for
   // substatements because:
   // -When the 'then' scope exits, we want the condition declaration to still be
@@ -1587,16 +1567,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
   SourceLocation InnerStatementTrailingElseLoc;
   StmtResult ThenStmt;
-  {
-    Sema::ExpressionEvaluationContext Context =
-        Sema::ExpressionEvaluationContext::DiscardedStatement;
-      Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
 
-    EnterExpressionEvaluationContext PotentiallyDiscarded(
-        Actions, Context, nullptr,
-        Sema::ExpressionEvaluationContextRecord::EK_Other, true);
-    ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
-  }
+  ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
 
   if (Tok.isNot(tok::kw_or))
     MIChecker.Check();
@@ -1621,26 +1593,13 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     OrLoc = ConsumeToken();
     OrStmtLoc = Tok.getLocation();
 
-    // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
-    // there is no compound stmt.  C90 does not have this clause.  We only do
-    // this if the body isn't a compound statement to avoid push/pop in common
-    // cases.
-    //
-    // C++ 6.4p1:
     // The substatement in a selection-statement (each substatement, in the else
-    // form of the if statement) implicitly defines a local scope.
+    // form of the _Accept statement) implicitly defines a local scope.
     //
     ParseScope InnerScope(this, Scope::DeclScope, C99orCXX,
                           Tok.is(tok::l_brace));
 
     MisleadingIndentationChecker MIChecker(*this, MSK_else, OrLoc);
-    Sema::ExpressionEvaluationContext Context =
-        Sema::ExpressionEvaluationContext::DiscardedStatement;
-    Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-
-    EnterExpressionEvaluationContext PotentiallyDiscarded(
-        Actions, Context, nullptr,
-        Sema::ExpressionEvaluationContextRecord::EK_Other, true);
     OrStmt = ParseStatement();
 
     if (OrStmt.isUsable())
@@ -1924,22 +1883,6 @@ StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
                                 Sema::ConditionKind::Boolean, LParen, RParen))
     return StmtError();
 
-  // // Parse either _Accept or _Select
-  // if (Tok.isNot(tok::_Accept) && Tok.isNot(tok::_Select)) {
-  //   Diag(Tok, diag::err_expected_accept_or_select);
-  //   return StmtError();
-  // }
-
-  // bool IsAccept = Tok.is(tok::_Accept);
-  // SourceLocation KeywordLoc = ConsumeToken(); // Eat `_Accept` or `_Select`
-
-  // if (Tok.isNot(tok::identifier)) {
-  //   Diag(Tok, diag::err_expected_variable);
-  //   return StmtError();
-  // }
-
-  // IdentifierInfo *VarName = Tok.getIdentifierInfo();
-  // SourceLocation VarLoc = ConsumeToken(); // Eat the variable name
   SourceLocation ElseLoc;
   if (Tok.is(tok::kw__Else)) {
     ElseLoc = ConsumeToken();
