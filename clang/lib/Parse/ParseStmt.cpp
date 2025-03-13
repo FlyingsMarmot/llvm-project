@@ -1643,7 +1643,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
 StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Select) && "Not a _Select stmt!");
-  SourceLocation SelectLoc = ConsumeToken();  // eat the '_Accept'.
+  SourceLocation SelectLoc = ConsumeToken();  // eat the '_Select'.
 
 
   if (Tok.isNot(tok::l_paren)) {
@@ -1756,7 +1756,7 @@ StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
 
   IfStatementKind Kind = IfStatementKind::Ordinary;
  
-  return Actions.ActOnAcceptStmt(SelectLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
+  return Actions.ActOnSelectStmt(SelectLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
                              ThenStmt.get(), OrLoc, OrStmt.get());
 }
 
