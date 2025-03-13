@@ -2462,7 +2462,7 @@ public:
   }
 
   static bool classof(const Stmt *T) {
-    return T->getStmtClass() == AcceptStmtClass;
+    return T->getStmtClass() == SelectStmtClass;
   }
 };
 
