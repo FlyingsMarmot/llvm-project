@@ -207,7 +207,7 @@ protected:
     SourceLocation AcceptLoc;
   };
 
-  // Identical to IfStmt, but for _Accept
+  // Identical to IfStmt, but for _Select
   class SelectStmtBitfields {
     friend class ASTStmtReader;
     friend class SelectStmt;

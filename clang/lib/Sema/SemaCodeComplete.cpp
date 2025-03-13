@@ -6857,7 +6857,7 @@ void SemaCodeCompletion::CodeCompleteAfterSelect(Scope *S, bool IsBracedThen) {
 
   AddOrdinaryNameResults(PCC_Statement, S, SemaRef, Results);
 
-  // "else" block, but for uC++ we've got a bit more stuff -> or _Accept, _Else, _Else _Accept
+  // "else" block, but for uC++ we've got a bit more stuff -> or _Select, _Else, _Else _Select, and _Select
   CodeCompletionBuilder Builder(Results.getAllocator(),
                                 Results.getCodeCompletionTUInfo());
 

@@ -1715,7 +1715,7 @@ StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
     OrStmtLoc = Tok.getLocation();
 
     // The substatement in a selection-statement (each substatement, in the else
-    // form of the _Accept statement) implicitly defines a local scope.
+    // form of the _Select statement) implicitly defines a local scope.
     //
     ParseScope InnerScope(this, Scope::DeclScope, C99orCXX,
                           Tok.is(tok::l_brace));
