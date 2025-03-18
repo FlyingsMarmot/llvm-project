@@ -212,8 +212,11 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
 
   Cmd.push_back("-I" + ucppLibPath.string());
   Cmd.push_back("-I" + ucppCollectionPath.string());
+  // Disable error limit
+  // This is kind of corner cutting but this helps us to ignore error diagnostics present in uC++ files
   Cmd.push_back("-ferror-limit=0"); //"-ferror-limit=0"
 
+  // "mock" the import injection done by uC++
   std::filesystem::path ucppKernelHeaderPath = (extensionDirPath / "uCPP/source/src/kernel/uC++.h");
   Cmd.push_back("-include");
   Cmd.push_back(ucppKernelHeaderPath.string());
