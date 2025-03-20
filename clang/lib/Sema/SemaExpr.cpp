@@ -20397,6 +20397,7 @@ Sema::ConditionResult Sema::ActOnCondition(Scope *S, SourceLocation Loc,
   ExprResult Cond;
   switch (CK) {
   case ConditionKind::ACCEPT:
+    // TODO: Create a special analyzer for function names here
     if (getLangOpts().CPlusPlus) {
         Cond = ExprResult(new (Context) CXXBoolLiteralExpr(true, Context.BoolTy, Loc));
     } else {
@@ -20426,7 +20427,6 @@ Sema::ConditionResult Sema::ActOnCondition(Scope *S, SourceLocation Loc,
   FullExprArg FullExpr = MakeFullExpr(Cond.get(), Loc);
   if (!FullExpr.get())
     return ConditionError();
-  llvm::errs() << "reached end\n";
   return ConditionResult(*this, nullptr, FullExpr,
                          CK == ConditionKind::ConstexprIf);
 }
