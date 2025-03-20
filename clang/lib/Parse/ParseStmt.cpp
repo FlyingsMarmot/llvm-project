@@ -1406,9 +1406,10 @@ bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
     ExprResult CondExpr = Actions.CreateRecoveryExpr(
         Start, Tok.getLocation() == Start ? Start : PrevTokLocation, {},
         Actions.PreferredConditionType(CK));
-    if (!CondExpr.isInvalid())
+    if (!CondExpr.isInvalid()) {
       Cond = Actions.ActOnCondition(getCurScope(), Loc, CondExpr.get(), CK,
                                     /*MissingOK=*/false);
+    }
   }
 
   // Either the condition is valid or the rparen is present.
@@ -1582,7 +1583,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation OrLoc;
   SourceLocation OrStmtLoc;
   StmtResult OrStmt;
-
   // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
   // TODO: In the future, we would like some context-specific lexing 
   if (Tok.is(tok::pipepipe)) {
