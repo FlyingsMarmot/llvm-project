@@ -2383,9 +2383,11 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
     if (Results.includeCodePatterns()) {
       // _When (condition) { statements }
       Builder.AddTypedTextChunk("_When");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
       Builder.AddChunk(CodeCompletionString::CK_LeftParen);
       Builder.AddPlaceholderChunk("condition");
       Builder.AddChunk(CodeCompletionString::CK_RightParen);
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
       Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
       Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
       Builder.AddPlaceholderChunk("statements");
@@ -2418,6 +2420,14 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
       Builder.AddChunk(CodeCompletionString::CK_RightParen);
       Results.AddResult(Result(Builder.TakeString()));
 
+      // _Select (expression) 
+      Builder.AddTypedTextChunk("_Select");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+      Builder.AddPlaceholderChunk("expression");
+      Builder.AddChunk(CodeCompletionString::CK_RightParen);
+      Results.AddResult(Result(Builder.TakeString()));
+
       // _Accept (expression) { statements }
       Builder.AddTypedTextChunk("_Accept");
       Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
@@ -2431,6 +2441,21 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
       Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
       Builder.AddChunk(CodeCompletionString::CK_RightBrace);
       Results.AddResult(Result(Builder.TakeString()));
+
+      // _Selec (expression) { statements }
+      Builder.AddTypedTextChunk("_Select");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+      Builder.AddPlaceholderChunk("expression");
+      Builder.AddChunk(CodeCompletionString::CK_RightParen);
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddPlaceholderChunk("statements");
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+      Results.AddResult(Result(Builder.TakeString()));
+
 
 
       // do { statements } while ( expression );
@@ -6726,6 +6751,163 @@ void SemaCodeCompletion::CodeCompleteAfterIf(Scope *S, bool IsBracedThen) {
     Builder.AddPlaceholderChunk("condition");
   else
     Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  if (Results.includeCodePatterns()) {
+    AddElseBodyPattern();
+  }
+  Results.AddResult(Builder.TakeString());
+
+  Results.ExitScope();
+
+  if (S->getFnParent())
+    AddPrettyFunctionResults(getLangOpts(), Results);
+
+  if (CodeCompleter->includeMacros())
+    AddMacroResults(SemaRef.PP, Results, CodeCompleter->loadExternal(), false);
+
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
+void SemaCodeCompletion::CodeCompleteAfterAccept(Scope *S, bool IsBracedThen) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        mapCodeCompletionContext(SemaRef, PCC_Statement));
+  Results.setFilter(&ResultBuilder::IsOrdinaryName);
+  Results.EnterNewScope();
+
+  CodeCompletionDeclConsumer Consumer(Results, SemaRef.CurContext);
+  SemaRef.LookupVisibleDecls(S, Sema::LookupOrdinaryName, Consumer,
+                             CodeCompleter->includeGlobals(),
+                             CodeCompleter->loadExternal());
+
+  AddOrdinaryNameResults(PCC_Statement, S, SemaRef, Results);
+
+  // "else" block, but for uC++ we've got a bit more stuff -> or _Accept, _Else, _Else _Accept
+  CodeCompletionBuilder Builder(Results.getAllocator(),
+                                Results.getCodeCompletionTUInfo());
+
+  auto AddElseBodyPattern = [&] {
+    if (IsBracedThen) {
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddPlaceholderChunk("statements");
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+    } else {
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddPlaceholderChunk("statement");
+      Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+    }
+  };
+  Builder.AddTypedTextChunk("_Else");
+  if (Results.includeCodePatterns())
+    AddElseBodyPattern();
+  Results.AddResult(Builder.TakeString());
+
+  // "else _Accept" block
+  Builder.AddTypedTextChunk("_Else _Accept");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  if (Results.includeCodePatterns()) {
+    AddElseBodyPattern();
+  }
+  Results.AddResult(Builder.TakeString());
+
+  // "or _Accept" block
+  Builder.AddTypedTextChunk("or _Accept");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  if (Results.includeCodePatterns()) {
+    AddElseBodyPattern();
+  }
+  Results.AddResult(Builder.TakeString());
+
+  Results.ExitScope();
+
+  if (S->getFnParent())
+    AddPrettyFunctionResults(getLangOpts(), Results);
+
+  if (CodeCompleter->includeMacros())
+    AddMacroResults(SemaRef.PP, Results, CodeCompleter->loadExternal(), false);
+
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
+void SemaCodeCompletion::CodeCompleteAfterSelect(Scope *S, bool IsBracedThen) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        mapCodeCompletionContext(SemaRef, PCC_Statement));
+  Results.setFilter(&ResultBuilder::IsOrdinaryName);
+  Results.EnterNewScope();
+
+  CodeCompletionDeclConsumer Consumer(Results, SemaRef.CurContext);
+  SemaRef.LookupVisibleDecls(S, Sema::LookupOrdinaryName, Consumer,
+                             CodeCompleter->includeGlobals(),
+                             CodeCompleter->loadExternal());
+
+  AddOrdinaryNameResults(PCC_Statement, S, SemaRef, Results);
+
+  // "else" block, but for uC++ we've got a bit more stuff -> or _Select, _Else, _Else _Select, and _Select
+  CodeCompletionBuilder Builder(Results.getAllocator(),
+                                Results.getCodeCompletionTUInfo());
+
+  auto AddElseBodyPattern = [&] {
+    if (IsBracedThen) {
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddPlaceholderChunk("statements");
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+    } else {
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddPlaceholderChunk("statement");
+      Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+    }
+  };
+  Builder.AddTypedTextChunk("_Else");
+  if (Results.includeCodePatterns())
+    AddElseBodyPattern();
+  Results.AddResult(Builder.TakeString());
+
+  // "else _Select" block
+  Builder.AddTypedTextChunk("_Else _Select");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  if (Results.includeCodePatterns()) {
+    AddElseBodyPattern();
+  }
+  Results.AddResult(Builder.TakeString());
+
+  // "or _Select" block
+  Builder.AddTypedTextChunk("or _Select");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
+  Builder.AddChunk(CodeCompletionString::CK_RightParen);
+  if (Results.includeCodePatterns()) {
+    AddElseBodyPattern();
+  }
+  Results.AddResult(Builder.TakeString());
+
+  // "and _Select" block
+  Builder.AddTypedTextChunk("and _Select");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+  Builder.AddPlaceholderChunk("expression");
   Builder.AddChunk(CodeCompletionString::CK_RightParen);
   if (Results.includeCodePatterns()) {
     AddElseBodyPattern();

@@ -151,6 +151,8 @@ public:
                               llvm::ArrayRef<Expr *> InitExprs,
                               const Designation &D);
   void CodeCompleteAfterIf(Scope *S, bool IsBracedThen);
+  void CodeCompleteAfterAccept(Scope *S, bool IsBracedThen);
+  void CodeCompleteAfterSelect(Scope *s, bool isBracedThen);
 
   void CodeCompleteQualifiedId(Scope *S, CXXScopeSpec &SS, bool EnteringContext,
                                bool IsUsingDeclaration, QualType BaseType,

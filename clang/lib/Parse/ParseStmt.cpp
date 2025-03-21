@@ -324,6 +324,8 @@ Retry:
   }
   case tok::kw__Accept:
     return ParseAcceptStatement(TrailingElseLoc);
+  case tok::kw__Select:
+    return ParseSelectStatement(TrailingElseLoc);
   case tok::kw__When:                  // C99 6.8.4.1: if-statement
     return ParseWhenStatement(TrailingElseLoc);
   case tok::kw_if:                  // C99 6.8.4.1: if-statement
@@ -1404,9 +1406,10 @@ bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
     ExprResult CondExpr = Actions.CreateRecoveryExpr(
         Start, Tok.getLocation() == Start ? Start : PrevTokLocation, {},
         Actions.PreferredConditionType(CK));
-    if (!CondExpr.isInvalid())
+    if (!CondExpr.isInvalid()) {
       Cond = Actions.ActOnCondition(getCurScope(), Loc, CondExpr.get(), CK,
                                     /*MissingOK=*/false);
+    }
   }
 
   // Either the condition is valid or the rparen is present.
@@ -1524,32 +1527,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Accept) && "Not an _Accept stmt!");
   SourceLocation AcceptLoc = ConsumeToken();  // eat the '_Accept'.
 
-  bool IsConstexpr = false;
-  bool IsConsteval = false;
-  SourceLocation NotLocation;
-  SourceLocation ConstevalLoc;
 
-  if (Tok.is(tok::kw_constexpr)) {
-    // C23 supports constexpr keyword, but only for object definitions.
-    if (getLangOpts().CPlusPlus) {
-      Diag(Tok, getLangOpts().CPlusPlus17 ? diag::warn_cxx14_compat_constexpr_if
-                                          : diag::ext_constexpr_if);
-      IsConstexpr = true;
-      ConsumeToken();
-    }
-  } else {
-    if (Tok.is(tok::exclaim)) {
-      NotLocation = ConsumeToken();
-    }
-
-    if (Tok.is(tok::kw_consteval)) {
-      Diag(Tok, getLangOpts().CPlusPlus23 ? diag::warn_cxx20_compat_consteval_if
-                                          : diag::ext_consteval_if);
-      IsConsteval = true;
-      ConstevalLoc = ConsumeToken();
-    }
-  }
-  if (!IsConsteval && (NotLocation.isValid() || Tok.isNot(tok::l_paren))) {
+  if (Tok.isNot(tok::l_paren)) {
     Diag(Tok, diag::err_expected_lparen_after) << "_Accept";
     SkipUntil(tok::semi);
     return StmtError();
@@ -1557,18 +1536,6 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
   bool C99orCXX = getLangOpts().C99 || getLangOpts().CPlusPlus;
 
-  // C99 6.8.4p3 - In C99, the if statement is a block.  This is not
-  // the case for C90.
-  //
-  // C++ 6.4p3:
-  // A name introduced by a declaration in a condition is in scope from its
-  // point of declaration until the end of the substatements controlled by the
-  // condition.
-  // C++ 3.3.2p4:
-  // Names declared in the for-init-statement, and in the condition of if,
-  // while, for, and switch statements are local to the if, while, for, or
-  // switch statement (including the controlled statement).
-  //
   ParseScope AcceptScope(this, Scope::DeclScope | Scope::ControlScope, C99orCXX);
 
   // Parse the condition.
@@ -1576,27 +1543,14 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   Sema::ConditionResult Cond;
   SourceLocation LParen;
   SourceLocation RParen;
-  std::optional<bool> ConstexprCondition;
-  if (!IsConsteval) {
-    if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
+  if (ParseParenExprOrCondition(&InitStmt, Cond, AcceptLoc,
                                   Sema::ConditionKind::ACCEPT,
                                   LParen, RParen))
-      return StmtError();
+    return StmtError();
 
-    if (IsConstexpr)
-      ConstexprCondition = Cond.getKnownValue();
-  }
 
   bool IsBracedThen = Tok.is(tok::l_brace);
 
-  // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
-  // there is no compound stmt.  C90 does not have this clause.  We only do this
-  // if the body isn't a compound statement to avoid push/pop in common cases.
-  //
-  // C++ 6.4p1:
-  // The substatement in a selection-statement (each substatement, in the else
-  // form of the if statement) implicitly defines a local scope.
-  //
   // For C++ we create a scope for the condition and a new scope for
   // substatements because:
   // -When the 'then' scope exits, we want the condition declaration to still be
@@ -1616,20 +1570,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
   SourceLocation InnerStatementTrailingElseLoc;
   StmtResult ThenStmt;
-  {
-    bool ShouldEnter = ConstexprCondition && !*ConstexprCondition;
-    Sema::ExpressionEvaluationContext Context =
-        Sema::ExpressionEvaluationContext::DiscardedStatement;
-    if (NotLocation.isInvalid() && IsConsteval) {
-      Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-      ShouldEnter = true;
-    }
 
-    EnterExpressionEvaluationContext PotentiallyDiscarded(
-        Actions, Context, nullptr,
-        Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
-    ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
-  }
+  ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
 
   if (Tok.isNot(tok::kw_or))
     MIChecker.Check();
@@ -1641,43 +1583,25 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation OrLoc;
   SourceLocation OrStmtLoc;
   StmtResult OrStmt;
-
   // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
   // TODO: In the future, we would like some context-specific lexing 
   if (Tok.is(tok::pipepipe)) {
     Tok.setKind(tok::kw_or);
   }
-  if (Tok.is(tok::kw_or)) {
+  if (Tok.is(tok::kw_or) || Tok.is(tok::kw__Else)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
 
     OrLoc = ConsumeToken();
     OrStmtLoc = Tok.getLocation();
 
-    // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
-    // there is no compound stmt.  C90 does not have this clause.  We only do
-    // this if the body isn't a compound statement to avoid push/pop in common
-    // cases.
-    //
-    // C++ 6.4p1:
     // The substatement in a selection-statement (each substatement, in the else
-    // form of the if statement) implicitly defines a local scope.
+    // form of the _Accept statement) implicitly defines a local scope.
     //
     ParseScope InnerScope(this, Scope::DeclScope, C99orCXX,
                           Tok.is(tok::l_brace));
 
     MisleadingIndentationChecker MIChecker(*this, MSK_else, OrLoc);
-    bool ShouldEnter = ConstexprCondition && *ConstexprCondition;
-    Sema::ExpressionEvaluationContext Context =
-        Sema::ExpressionEvaluationContext::DiscardedStatement;
-    if (NotLocation.isValid() && IsConsteval) {
-      Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-      ShouldEnter = true;
-    }
-
-    EnterExpressionEvaluationContext PotentiallyDiscarded(
-        Actions, Context, nullptr,
-        Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
     OrStmt = ParseStatement();
 
     if (OrStmt.isUsable())
@@ -1687,7 +1611,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     InnerScope.Exit();
   } else if (Tok.is(tok::code_completion)) {
     cutOffParsing();
-    Actions.CodeCompletion().CodeCompleteAfterIf(getCurScope(), IsBracedThen);
+    Actions.CodeCompletion().CodeCompleteAfterAccept(getCurScope(), IsBracedThen);
     return StmtError();
   } else if (InnerStatementTrailingElseLoc.isValid()) {
     Diag(InnerStatementTrailingElseLoc, diag::warn_dangling_else);
@@ -1705,23 +1629,123 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     return StmtError();
   }
 
-  if (IsConsteval) {
-    auto IsCompoundStatement = [](const Stmt *S) {
-      if (const auto *Outer = dyn_cast_if_present<AttributedStmt>(S))
-        S = Outer->getSubStmt();
-      return isa_and_nonnull<clang::CompoundStmt>(S);
-    };
+  // Now if either are invalid, replace with a ';'.
+  if (ThenStmt.isInvalid())
+    ThenStmt = Actions.ActOnNullStmt(ThenStmtLoc);
+  if (OrStmt.isInvalid())
+    OrStmt = Actions.ActOnNullStmt(OrStmtLoc);
 
-    if (!IsCompoundStatement(ThenStmt.get())) {
-      Diag(ConstevalLoc, diag::err_expected_after) << "consteval"
-                                                   << "{";
-      return StmtError();
-    }
-    if (!OrStmt.isUnset() && !IsCompoundStatement(OrStmt.get())) {
-      Diag(OrLoc, diag::err_expected_after) << "else"
-                                              << "{";
-      return StmtError();
-    }
+  IfStatementKind Kind = IfStatementKind::Ordinary;
+ 
+  return Actions.ActOnAcceptStmt(AcceptLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
+                             ThenStmt.get(), OrLoc, OrStmt.get());
+}
+
+StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
+  assert(Tok.is(tok::kw__Select) && "Not a _Select stmt!");
+  SourceLocation SelectLoc = ConsumeToken();  // eat the '_Select'.
+
+
+  if (Tok.isNot(tok::l_paren)) {
+    Diag(Tok, diag::err_expected_lparen_after) << "_Select";
+    SkipUntil(tok::semi);
+    return StmtError();
+  }
+
+  bool C99orCXX = getLangOpts().C99 || getLangOpts().CPlusPlus;
+
+  ParseScope SelectScope(this, Scope::DeclScope | Scope::ControlScope, C99orCXX);
+
+  // Parse the condition.
+  StmtResult InitStmt;
+  Sema::ConditionResult Cond;
+  SourceLocation LParen;
+  SourceLocation RParen;
+  if (ParseParenExprOrCondition(&InitStmt, Cond, SelectLoc,
+                                  Sema::ConditionKind::ACCEPT,
+                                  LParen, RParen))
+    return StmtError();
+
+
+  bool IsBracedThen = Tok.is(tok::l_brace);
+
+  // For C++ we create a scope for the condition and a new scope for
+  // substatements because:
+  // -When the 'then' scope exits, we want the condition declaration to still be
+  //    active for the 'else' scope too.
+  // -Sema will detect name clashes by considering declarations of a
+  //    'ControlScope' as part of its direct subscope.
+  // -If we wanted the condition and substatement to be in the same scope, we
+  //    would have to notify ParseStatement not to create a new scope. It's
+  //    simpler to let it create a new scope.
+  //
+  ParseScope InnerScope(this, Scope::DeclScope, C99orCXX, IsBracedThen);
+
+  MisleadingIndentationChecker MIChecker(*this, MSK_if, SelectLoc);
+
+  // Read the 'then' stmt.
+  SourceLocation ThenStmtLoc = Tok.getLocation();
+
+  SourceLocation InnerStatementTrailingElseLoc;
+  StmtResult ThenStmt;
+
+  ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
+
+  if (Tok.isNot(tok::kw_or))
+    MIChecker.Check();
+
+  InnerScope.Exit();
+
+  SourceLocation OrLoc;
+  SourceLocation OrStmtLoc;
+  StmtResult OrStmt;
+
+  // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
+  // TODO: In the future, we would like some context-specific lexing 
+  if (Tok.is(tok::pipepipe)) {
+    Tok.setKind(tok::kw_or);
+  } else if (Tok.is(tok::ampamp)) { // same thing here with '&&' 
+    Tok.setKind(tok::kw_and);
+  }
+  if (Tok.is(tok::kw_or) || Tok.is(tok::kw_and) || Tok.is(tok::kw__Else)) {
+    if (TrailingElseLoc)
+      *TrailingElseLoc = Tok.getLocation();
+
+    OrLoc = ConsumeToken();
+    OrStmtLoc = Tok.getLocation();
+
+    // The substatement in a selection-statement (each substatement, in the else
+    // form of the _Select statement) implicitly defines a local scope.
+    //
+    ParseScope InnerScope(this, Scope::DeclScope, C99orCXX,
+                          Tok.is(tok::l_brace));
+
+    MisleadingIndentationChecker MIChecker(*this, MSK_else, OrLoc);
+    OrStmt = ParseStatement();
+
+    if (OrStmt.isUsable())
+      MIChecker.Check();
+
+    // Pop the 'else' scope if needed.
+    InnerScope.Exit();
+  } else if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
+    Actions.CodeCompletion().CodeCompleteAfterSelect(getCurScope(), IsBracedThen);
+    return StmtError();
+  } else if (InnerStatementTrailingElseLoc.isValid()) {
+    Diag(InnerStatementTrailingElseLoc, diag::warn_dangling_else);
+  }
+
+  SelectScope.Exit();
+
+  // If the then or else stmt is invalid and the other is valid (and present),
+  // turn the invalid one into a null stmt to avoid dropping the other
+  // part.  If both are invalid, return error.
+  if ((ThenStmt.isInvalid() && OrStmt.isInvalid()) ||
+      (ThenStmt.isInvalid() && OrStmt.get() == nullptr) ||
+      (ThenStmt.get() == nullptr && OrStmt.isInvalid())) {
+    // Both invalid, or one is invalid and other is non-present: return error.
+    return StmtError();
   }
 
   // Now if either are invalid, replace with a ';'.
@@ -1731,13 +1755,8 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
     OrStmt = Actions.ActOnNullStmt(OrStmtLoc);
 
   IfStatementKind Kind = IfStatementKind::Ordinary;
-  if (IsConstexpr)
-    Kind = IfStatementKind::Constexpr;
-  else if (IsConsteval)
-    Kind = NotLocation.isValid() ? IfStatementKind::ConstevalNegated
-                                 : IfStatementKind::ConstevalNonNegated;
  
-  return Actions.ActOnAcceptStmt(AcceptLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
+  return Actions.ActOnSelectStmt(SelectLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
                              ThenStmt.get(), OrLoc, OrStmt.get());
 }
 
@@ -1985,30 +2004,24 @@ StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
                                 Sema::ConditionKind::Boolean, LParen, RParen))
     return StmtError();
 
-  // // Parse either _Accept or _Select
-  // if (Tok.isNot(tok::_Accept) && Tok.isNot(tok::_Select)) {
-  //   Diag(Tok, diag::err_expected_accept_or_select);
-  //   return StmtError();
-  // }
+  SourceLocation ElseLoc;
+  if (Tok.is(tok::kw__Else)) {
+    ElseLoc = ConsumeToken();
+  }
+  
+  StmtResult Block;
 
-  // bool IsAccept = Tok.is(tok::_Accept);
-  // SourceLocation KeywordLoc = ConsumeToken(); // Eat `_Accept` or `_Select`
-
-  // if (Tok.isNot(tok::identifier)) {
-  //   Diag(Tok, diag::err_expected_variable);
-  //   return StmtError();
-  // }
-
-  // IdentifierInfo *VarName = Tok.getIdentifierInfo();
-  // SourceLocation VarLoc = ConsumeToken(); // Eat the variable name
-
-  if (Tok.isNot(tok::l_brace))
-    return StmtError(Diag(Tok, diag::err_expected) << tok::l_brace);
-
-  StmtResult Block(ParseCompoundStatement());
-
-  if(Block.isInvalid())
-    return Block;
+  // Parse block statement if `{` is found
+  if (Tok.is(tok::l_brace)) {
+    Block = ParseCompoundStatement();
+    if (Block.isInvalid())
+      return Block;
+  } else {
+    // Allow an empty or single statement
+    Block = ParseStatement();
+    if (Block.isInvalid())
+      Block = Actions.ActOnNullStmt(WhenLoc);
+  }
 
   IdentifierInfo *VarName = nullptr;
   SourceLocation VarLoc;
