@@ -3968,6 +3968,12 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
     // While we still have something to read, read the member-declarations.
     while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
            Tok.isNot(tok::eof)) {
+            
+      // Check and parse uC++ mutex specifiers if present
+      if (Tok.isOneOf(tok::kw__Nomutex, tok::kw__Mutex)) {
+        ConsumeToken(); // Consume the _Nomutex / _Mutex keyword
+      }
+
       // Each iteration of this loop reads one member-declaration.
       ParseCXXClassMemberDeclarationWithPragmas(
           CurAS, AccessAttrs, static_cast<DeclSpec::TST>(TagType), TagDecl);
