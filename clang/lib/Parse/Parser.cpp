@@ -1541,8 +1541,13 @@ void Parser::SkipFunctionBody() {
     SkipMalformedDecl();
   else {
     SkipUntil(tok::r_brace);
-    while (IsFunctionTryBlock && Tok.isOneOf(tok::kw_catch, tok::kw__CatchResume)) {
+    while (IsFunctionTryBlock &&
+           Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume)) {
       SkipUntil(tok::l_brace);
+      SkipUntil(tok::r_brace);
+    }
+    if (IsFunctionTryBlock && Tok.is(tok::kw__Finally)) {
+      ConsumeToken();
       SkipUntil(tok::r_brace);
     }
   }

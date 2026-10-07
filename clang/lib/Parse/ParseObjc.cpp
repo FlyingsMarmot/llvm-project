@@ -1100,6 +1100,7 @@ IdentifierInfo *Parser::ParseObjCSelectorPiece(SourceLocation &SelectorLoc) {
   case tok::kw_break:
   case tok::kw_case:
   case tok::kw_catch:
+  case tok::kw__Catch:
   case tok::kw__CatchResume:
   case tok::kw_char:
   case tok::kw_class:
@@ -1147,6 +1148,8 @@ IdentifierInfo *Parser::ParseObjCSelectorPiece(SourceLocation &SelectorLoc) {
   case tok::kw_this:
   case tok::kw_throw:
   case tok::kw__Throw:
+  case tok::kw__Resume:
+  case tok::kw__ResumeTop:
   case tok::kw_true:
   case tok::kw_try:
   case tok::kw_typedef:
@@ -2751,8 +2754,12 @@ void Parser::StashAwayMethodOrFunctionBodyTokens(Decl *MDecl) {
   ConsumeBrace();
   // Consume everything up to (and including) the matching right brace.
   ConsumeAndStoreUntil(tok::r_brace, Toks, /*StopAtSemi=*/false);
-  while (Tok.isOneOf(tok::kw_catch, tok::kw__CatchResume)) { //could skip I think
+  while (Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume)) {
     ConsumeAndStoreUntil(tok::l_brace, Toks, /*StopAtSemi=*/false);
+    ConsumeAndStoreUntil(tok::r_brace, Toks, /*StopAtSemi=*/false);
+  }
+  if (Tok.is(tok::kw__Finally)) {
+    ConsumeToken();
     ConsumeAndStoreUntil(tok::r_brace, Toks, /*StopAtSemi=*/false);
   }
 }

@@ -1819,10 +1819,17 @@ static void AddTypeSpecifierResults(const LangOptions &LangOpts,
     Results.AddResult(
         Result("bool", CCP_Type + (LangOpts.ObjC ? CCD_bool_in_ObjC : 0)));
     Results.AddResult(Result("class", CCP_Type));
+    Results.AddResult(Result("_Actor", CCP_Type));
+    Results.AddResult(Result("_CorActor", CCP_Type));
+    Results.AddResult(Result("_Cormonitor", CCP_Type));
     Results.AddResult(Result("_Coroutine", CCP_Type));
-    Results.AddResult(Result("_Task", CCP_Type));
-    Results.AddResult(Result("_Monitor", CCP_Type));
     Results.AddResult(Result("_Event", CCP_Type));
+    Results.AddResult(Result("_Exception", CCP_Type));
+    Results.AddResult(Result("_Monitor", CCP_Type));
+    Results.AddResult(Result("_PeriodicTask", CCP_Type));
+    Results.AddResult(Result("_RealTimeTask", CCP_Type));
+    Results.AddResult(Result("_SporadicTask", CCP_Type));
+    Results.AddResult(Result("_Task", CCP_Type));
     Results.AddResult(Result("wchar_t", CCP_Type));
 
     // typename name

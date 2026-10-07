@@ -28,8 +28,6 @@
 #include "clang/Sema/SemaOpenMP.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/raw_ostream.h"
-#include <cmath>
 #include <optional>
 
 using namespace clang;
@@ -324,10 +322,18 @@ Retry:
   }
   case tok::kw__Accept:
     return ParseAcceptStatement(TrailingElseLoc);
+  case tok::kw__AcceptReturn:
+  case tok::kw__AcceptWait:
+    return ParseAcceptReturnOrWaitStatement();
   case tok::kw__Select:
     return ParseSelectStatement(TrailingElseLoc);
-  case tok::kw__When:                  // C99 6.8.4.1: if-statement
+  case tok::kw__When:
     return ParseWhenStatement(TrailingElseLoc);
+  case tok::kw__Enable:
+  case tok::kw__Disable:
+    return ParseUCPPEnableDisableStatement();
+  case tok::kw__Timeout:
+    return ParseUCPPTimeoutStatement();
   case tok::kw_if:                  // C99 6.8.4.1: if-statement
     return ParseIfStatement(TrailingElseLoc);
   case tok::kw_switch:              // C99 6.8.4.2: switch-statement
@@ -1523,6 +1529,40 @@ struct MisleadingIndentationChecker {
 
 }
 
+bool Parser::isUCPPWordOperator(tok::TokenKind Kind, StringRef Spelling) {
+  return Tok.is(Kind) && PP.getSpelling(Tok) == Spelling;
+}
+
+void Parser::ConsumeUCPPTypeList() {
+  if (Tok.isNot(tok::less))
+    return;
+
+  unsigned Depth = 0;
+  do {
+    switch (Tok.getKind()) {
+    case tok::less:
+      ++Depth;
+      break;
+    case tok::greater:
+      if (Depth != 0)
+        --Depth;
+      break;
+    case tok::greatergreater:
+      Depth = Depth > 1 ? Depth - 2 : 0;
+      break;
+    case tok::greatergreatergreater:
+      Depth = Depth > 2 ? Depth - 3 : 0;
+      break;
+    case tok::semi:
+    case tok::eof:
+      return;
+    default:
+      break;
+    }
+    ConsumeAnyToken();
+  } while (Depth != 0);
+}
+
 StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw__Accept) && "Not an _Accept stmt!");
   SourceLocation AcceptLoc = ConsumeToken();  // eat the '_Accept'.
@@ -1573,7 +1613,7 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
 
   ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
 
-  if (Tok.isNot(tok::kw_or))
+  if (!isUCPPWordOperator(tok::pipepipe, "or"))
     MIChecker.Check();
 
   // Pop the 'if' scope if needed.
@@ -1583,16 +1623,15 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation OrLoc;
   SourceLocation OrStmtLoc;
   StmtResult OrStmt;
-  // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
-  // TODO: In the future, we would like some context-specific lexing 
-  if (Tok.is(tok::pipepipe)) {
-    Tok.setKind(tok::kw_or);
-  }
-  if (Tok.is(tok::kw_or) || Tok.is(tok::kw__Else)) {
+  bool HasOrConnector = isUCPPWordOperator(tok::pipepipe, "or");
+  bool HasElseClause = Tok.is(tok::kw__Else);
+  if (HasOrConnector || HasElseClause || Tok.is(tok::kw__When)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
 
-    OrLoc = ConsumeToken();
+    OrLoc = Tok.getLocation();
+    if (HasOrConnector || HasElseClause)
+      ConsumeToken();
     OrStmtLoc = Tok.getLocation();
 
     // The substatement in a selection-statement (each substatement, in the else
@@ -1639,6 +1678,45 @@ StmtResult Parser::ParseAcceptStatement(SourceLocation *TrailingElseLoc) {
  
   return Actions.ActOnAcceptStmt(AcceptLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
                              ThenStmt.get(), OrLoc, OrStmt.get());
+}
+
+StmtResult Parser::ParseAcceptReturnOrWaitStatement() {
+  assert(Tok.isOneOf(tok::kw__AcceptReturn, tok::kw__AcceptWait) &&
+         "Not an _AcceptReturn/_AcceptWait statement!");
+  SourceLocation KeywordLoc = ConsumeToken();
+
+  StmtResult InitStmt;
+  Sema::ConditionResult Cond;
+  SourceLocation LParen;
+  SourceLocation RParen;
+  if (ParseParenExprOrCondition(&InitStmt, Cond, KeywordLoc,
+                                Sema::ConditionKind::ACCEPT, LParen, RParen))
+    return StmtError();
+
+  SmallVector<Stmt *, 4> Parts;
+  if (InitStmt.isUsable())
+    Parts.push_back(InitStmt.get());
+  if (!Cond.isInvalid() && Cond.get().second)
+    Parts.push_back(Cond.get().second);
+  if (Tok.isNot(tok::semi)) {
+    ExprResult Value = ParseAssignmentExpression();
+    if (Value.isInvalid())
+      return StmtError();
+    Parts.push_back(Value.get());
+    if (Tok.is(tok::kw__With)) {
+      ConsumeToken();
+      ExprResult WithValue = ParseAssignmentExpression();
+      if (WithValue.isInvalid())
+        return StmtError();
+      Parts.push_back(WithValue.get());
+    }
+  }
+
+  if (Tok.isNot(tok::semi))
+    return StmtError(Diag(Tok, diag::err_expected) << tok::semi);
+  SourceLocation SemiLoc = ConsumeToken();
+  return Actions.ActOnCompoundStmt(KeywordLoc, SemiLoc, Parts,
+                                   /*isStmtExpr=*/false);
 }
 
 StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
@@ -1691,7 +1769,8 @@ StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
 
   ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
 
-  if (Tok.isNot(tok::kw_or))
+  if (!isUCPPWordOperator(tok::pipepipe, "or") &&
+      !isUCPPWordOperator(tok::ampamp, "and"))
     MIChecker.Check();
 
   InnerScope.Exit();
@@ -1700,18 +1779,16 @@ StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation OrStmtLoc;
   StmtResult OrStmt;
 
-  // For now, since `or` is also `pipepipe` (||), we must force it to recognize it as `or` in this context. However, this means `||` also works here. 
-  // TODO: In the future, we would like some context-specific lexing 
-  if (Tok.is(tok::pipepipe)) {
-    Tok.setKind(tok::kw_or);
-  } else if (Tok.is(tok::ampamp)) { // same thing here with '&&' 
-    Tok.setKind(tok::kw_and);
-  }
-  if (Tok.is(tok::kw_or) || Tok.is(tok::kw_and) || Tok.is(tok::kw__Else)) {
+  bool HasWordConnector = isUCPPWordOperator(tok::pipepipe, "or") ||
+                          isUCPPWordOperator(tok::ampamp, "and");
+  bool HasElseClause = Tok.is(tok::kw__Else);
+  if (HasWordConnector || HasElseClause || Tok.is(tok::kw__When)) {
     if (TrailingElseLoc)
       *TrailingElseLoc = Tok.getLocation();
 
-    OrLoc = ConsumeToken();
+    OrLoc = Tok.getLocation();
+    if (HasWordConnector || HasElseClause)
+      ConsumeToken();
     OrStmtLoc = Tok.getLocation();
 
     // The substatement in a selection-statement (each substatement, in the else
@@ -1721,7 +1798,17 @@ StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
                           Tok.is(tok::l_brace));
 
     MisleadingIndentationChecker MIChecker(*this, MSK_else, OrLoc);
-    OrStmt = ParseStatement();
+    if (Tok.is(tok::l_paren) &&
+        NextToken().isOneOf(tok::kw__Select, tok::kw__When)) {
+      BalancedDelimiterTracker T(*this, tok::l_paren);
+      T.consumeOpen();
+      OrStmt = ParseStatement();
+      T.consumeClose();
+      if (T.getCloseLocation().isInvalid())
+        OrStmt = StmtError();
+    } else {
+      OrStmt = ParseStatement();
+    }
 
     if (OrStmt.isUsable())
       MIChecker.Check();
@@ -1758,6 +1845,52 @@ StmtResult Parser::ParseSelectStatement(SourceLocation *TrailingElseLoc) {
  
   return Actions.ActOnSelectStmt(SelectLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
                              ThenStmt.get(), OrLoc, OrStmt.get());
+}
+
+StmtResult Parser::ParseUCPPEnableDisableStatement() {
+  assert(Tok.isOneOf(tok::kw__Enable, tok::kw__Disable) &&
+         "Not an _Enable/_Disable statement!");
+  SourceLocation KeywordLoc = ConsumeToken();
+  while (Tok.is(tok::less))
+    ConsumeUCPPTypeList();
+
+  if (Tok.is(tok::semi))
+    return Actions.ActOnNullStmt(ConsumeToken());
+  if (Tok.is(tok::r_brace))
+    return Actions.ActOnNullStmt(KeywordLoc);
+  return ParseStatement();
+}
+
+StmtResult Parser::ParseUCPPTimeoutStatement() {
+  assert(Tok.is(tok::kw__Timeout) && "Not a _Timeout statement!");
+  SourceLocation TimeoutLoc = ConsumeToken();
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.expectAndConsume())
+    return StmtError();
+  ExprResult Timeout = ParseExpression();
+  if (Timeout.isInvalid())
+    return StmtError();
+  T.consumeClose();
+  if (T.getCloseLocation().isInvalid())
+    return StmtError();
+
+  StmtResult Body = ParseStatement();
+  if (Body.isInvalid())
+    return Body;
+
+  if (Tok.is(tok::kw__When))
+    ParseWhenStatement(nullptr);
+  else if (Tok.is(tok::kw__Else)) {
+    ConsumeToken();
+    ParseStatement();
+  }
+
+  SmallVector<Stmt *, 2> Parts;
+  Parts.push_back(Timeout.get());
+  if (Body.isUsable())
+    Parts.push_back(Body.get());
+  return Actions.ActOnCompoundStmt(TimeoutLoc, Body.get()->getEndLoc(), Parts,
+                                   /*isStmtExpr=*/false);
 }
 
 /// ParseIfStatement
@@ -2004,15 +2137,22 @@ StmtResult Parser::ParseWhenStatement(SourceLocation *TrailingElseLoc) {
                                 Sema::ConditionKind::Boolean, LParen, RParen))
     return StmtError();
 
-  SourceLocation ElseLoc;
   if (Tok.is(tok::kw__Else)) {
-    ElseLoc = ConsumeToken();
+    ConsumeToken();
   }
   
   StmtResult Block;
 
   // Parse block statement if `{` is found
-  if (Tok.is(tok::l_brace)) {
+  if (Tok.is(tok::l_paren) &&
+      NextToken().isOneOf(tok::kw__Select, tok::kw__When)) {
+    BalancedDelimiterTracker T(*this, tok::l_paren);
+    T.consumeOpen();
+    Block = ParseStatement();
+    T.consumeClose();
+    if (T.getCloseLocation().isInvalid())
+      return StmtError();
+  } else if (Tok.is(tok::l_brace)) {
     Block = ParseCompoundStatement();
     if (Block.isInvalid())
       return Block;
@@ -2749,6 +2889,8 @@ StmtResult Parser::ParseGotoStatement() {
 ///
 StmtResult Parser::ParseContinueStatement() {
   SourceLocation ContinueLoc = ConsumeToken();  // eat the 'continue'.
+  if (Tok.is(tok::identifier))
+    ConsumeToken(); // uC++ permits a labelled loop target.
   return Actions.ActOnContinueStmt(ContinueLoc, getCurScope());
 }
 
@@ -2760,6 +2902,8 @@ StmtResult Parser::ParseContinueStatement() {
 ///
 StmtResult Parser::ParseBreakStatement() {
   SourceLocation BreakLoc = ConsumeToken();  // eat the 'break'.
+  if (Tok.is(tok::identifier))
+    ConsumeToken(); // uC++ permits a labelled control-statement target.
   return Actions.ActOnBreakStmt(BreakLoc, getCurScope());
 }
 
@@ -2940,9 +3084,17 @@ bool Parser::trySkippingFunctionBody() {
     PA.Revert();
     return false;
   }
-  while (IsTryCatch && Tok.isOneOf(tok::kw_catch, tok::kw__CatchResume)) {
+  while (IsTryCatch &&
+         Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume)) {
     if (!SkipUntil(tok::l_brace, StopAtCodeCompletion) ||
         !SkipUntil(tok::r_brace, StopAtCodeCompletion)) {
+      PA.Revert();
+      return false;
+    }
+  }
+  if (IsTryCatch && Tok.is(tok::kw__Finally)) {
+    ConsumeToken();
+    if (!SkipUntil(tok::r_brace, StopAtCodeCompletion)) {
       PA.Revert();
       return false;
     }
@@ -3020,17 +3172,27 @@ StmtResult Parser::ParseCXXTryBlockCommon(SourceLocation TryLoc, bool FnTry) {
     // statement-like.
     DiagnoseAndSkipCXX11Attributes();
 
-    if (Tok.isNot(tok::kw_catch) && Tok.isNot(tok::kw__CatchResume) )
+    if (!Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume) &&
+        Tok.isNot(tok::kw__Finally))
       return StmtError(Diag(Tok, diag::err_expected_catch));
-    while ( Tok.isOneOf(tok::kw_catch, tok::kw__CatchResume)) {
+    while (Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume)) {
       StmtResult Handler(ParseCXXCatchBlock(FnTry));
       if (!Handler.isInvalid())
         Handlers.push_back(Handler.get());
     }
+    StmtResult Finally;
+    if (Tok.is(tok::kw__Finally)) {
+      ConsumeToken();
+      if (Tok.isNot(tok::l_brace))
+        return StmtError(Diag(Tok, diag::err_expected) << tok::l_brace);
+      Finally = ParseCompoundStatement();
+      if (Finally.isInvalid())
+        return Finally;
+    }
     // Don't bother creating the full statement if we don't have any usable
     // handlers.
     if (Handlers.empty())
-      return StmtError();
+      return Finally.isUsable() ? Finally : StmtError();
 
     return Actions.ActOnCXXTryBlock(TryLoc, TryBlock.get(), Handlers);
   }
@@ -3047,9 +3209,9 @@ StmtResult Parser::ParseCXXTryBlockCommon(SourceLocation TryLoc, bool FnTry) {
 ///     '...'
 ///
 StmtResult Parser::ParseCXXCatchBlock(bool FnCatch) {
-  assert(Tok.isOneOf(tok::kw_catch, tok::kw__CatchResume) && "Expected 'catch'");
+  assert(Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume) &&
+         "Expected 'catch'");
 
-  bool is_catchresume = Tok.is(tok::kw__CatchResume);
   SourceLocation CatchLoc = ConsumeToken();
   BalancedDelimiterTracker T(*this, tok::l_paren);
   if (T.expectAndConsume())
@@ -3065,12 +3227,33 @@ StmtResult Parser::ParseCXXCatchBlock(bool FnCatch) {
   // without default arguments.
 
   Decl *ExceptionDecl = nullptr;
-  if (is_catchresume) {
-    // skip/consume everything inside the () of '_CatchResume (<expr>)`
-    // we can maybe remove this case later
-    SkipUntil(tok::r_paren, Parser::StopAtSemi | Parser::StopBeforeMatch);
+  std::optional<unsigned> BoundObjectSeparator;
+  unsigned Depth = 0;
+  for (unsigned I = 0;; ++I) {
+    const Token &Lookahead = I == 0 ? Tok : PP.LookAhead(I - 1);
+    if (Lookahead.isOneOf(tok::eof, tok::semi))
+      break;
+    if (Lookahead.is(tok::l_paren))
+      ++Depth;
+    else if (Lookahead.is(tok::r_paren)) {
+      if (Depth == 0)
+        break;
+      --Depth;
+    } else if (Depth == 0 && Lookahead.is(tok::period)) {
+      // Use the final top-level period: the bound-object expression may itself
+      // contain member accesses.
+      BoundObjectSeparator = I;
+    }
   }
-  else if (Tok.isNot(tok::ellipsis)) {
+  if (BoundObjectSeparator) {
+    // A bound handler has the uC++-specific form
+    // "_CatchResume(object.Exception declaration)". Clang has no AST field
+    // for the bound object, but the declaration after the final period is an
+    // ordinary C++ exception declaration and should still be represented.
+    for (unsigned I = 0; I <= *BoundObjectSeparator; ++I)
+      ConsumeAnyToken();
+  }
+  if (Tok.isNot(tok::ellipsis)) {
     ParsedAttributes Attributes(AttrFactory);
     MaybeParseCXX11Attributes(Attributes);
 
