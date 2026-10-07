@@ -49,7 +49,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <filesystem>
 
 namespace clang {
 namespace clangd {
@@ -563,10 +562,6 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
   Mangler.SystemIncludeExtractor =
       getSystemIncludeExtractor(llvm::ArrayRef(Opts.QueryDriverGlobs));
 
-  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
-  std::filesystem::path clangLibsPath = (extensionDirPath / "lib/clang/20");
-  Mangler.ResourceDir = clangLibsPath.string();
-  
   CDB.emplace(BaseCDB.get(), Params.initializationOptions.fallbackFlags,
               std::move(Mangler));
 
