@@ -1,0 +1,241 @@
+name: Publish uC++ clangd
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Release version, for example 1.1.0
+        required: true
+        type: string
+      ucpp_ref:
+        description: vscode-clangd tag or commit containing the uCPP runtime tree
+        required: true
+        default: master
+        type: string
+      release_action:
+        description: Build only, publish a candidate, or promote an existing candidate
+        required: true
+        default: build-only
+        type: choice
+        options:
+          - build-only
+          - publish-prerelease
+          - promote-stable
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}-${{ matrix.architecture }} release
+    if: inputs.release_action != 'promote-stable'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            platform: linux
+            architecture: x86_64
+          - runner: macos-15-intel
+            platform: mac
+            architecture: x86_64
+          - runner: macos-15
+            platform: mac
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    env:
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      UCPP_REF: ${{ inputs.ucpp_ref }}
+      TARGET_PLATFORM: ${{ matrix.platform }}
+      TARGET_ARCHITECTURE: ${{ matrix.architecture }}
+    steps:
+      - name: Check out LLVM fork
+        uses: actions/checkout@v4
+
+      - name: Check out uC++ runtime
+        uses: actions/checkout@v4
+        with:
+          repository: FlyingsMarmot/vscode-clangd
+          ref: ${{ inputs.ucpp_ref }}
+          path: vscode-clangd
+          sparse-checkout: uCPP
+
+      - name: Validate release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release_version must use major.minor.patch format" >&2
+            exit 1
+          fi
+          test -f vscode-clangd/uCPP/source/src/kernel/uC++.h
+
+      - name: Validate runner architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$TARGET_ARCHITECTURE"
+
+      - name: Install build tools on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build zip
+
+      - name: Install build tools on macOS
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -S llvm -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=ON \
+            -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra' \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_TESTS=ON \
+            -DLLVM_PARALLEL_LINK_JOBS=1 \
+            -DLLVM_TARGETS_TO_BUILD=Native
+
+      - name: Build clang, clangd, and clangd tests
+        run: ninja -C build -j2 clang clangd ClangdTests
+
+      - name: Run uC++ parser regression test
+        run: |
+          build/bin/clang -cc1 -std=c++20 -fcxx-exceptions \
+            -Wno-everything -fsyntax-only -verify \
+            clang/test/Parser/ucpp-complete.cpp
+
+      - name: Run clangd semantic-highlighting regressions
+        run: |
+          build/tools/clang/tools/extra/clangd/unittests/ClangdTests \
+            --gtest_filter='SemanticHighlighting.*'
+
+      - name: Assemble release archive
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_root="clangd-ucpp-${RELEASE_VERSION}-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}"
+          archive="${release_root}.zip"
+
+          mkdir -p "$release_root/bin" "$release_root/lib"
+          install -m 0755 build/bin/clangd "$release_root/bin/clangd"
+          cp -a build/lib/clang "$release_root/lib/"
+          cp -a vscode-clangd/uCPP "$release_root/bin/uCPP"
+          cp LICENSE.TXT "$release_root/LICENSE.TXT"
+
+          {
+            echo "release_version=$RELEASE_VERSION"
+            echo "release_tag=flyings_marmot-$RELEASE_VERSION"
+            echo "llvm_commit=$GITHUB_SHA"
+            echo "ucpp_ref=$UCPP_REF"
+            echo "platform=$TARGET_PLATFORM"
+            echo "architecture=$TARGET_ARCHITECTURE"
+          } > "$release_root/BUILD-INFO.txt"
+
+          if [[ "$TARGET_PLATFORM" == mac ]]; then
+            codesign --force --sign - "$release_root/bin/clangd"
+            codesign --verify "$release_root/bin/clangd"
+          fi
+
+          zip -qry "$archive" "$release_root"
+          echo "path=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test packaged clangd
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_root="clangd-ucpp-${RELEASE_VERSION}-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}"
+          printf 'int main() { return 0; }\n' > packaged-smoke.cpp
+          "$release_root/bin/clangd" \
+            --check="$PWD/packaged-smoke.cpp" \
+            --enable-config=false
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ucpp-clangd-${{ matrix.platform }}-${{ matrix.architecture }}
+          path: ${{ steps.archive.outputs.path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish approved backend prerelease
+    if: inputs.release_action == 'publish-prerelease'
+    needs: build
+    runs-on: ubuntu-22.04
+    environment: backend-release
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested release artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ucpp-clangd-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: flyings_marmot-${{ inputs.release_version }}
+          name: v${{ inputs.release_version }}
+          commit: ${{ github.sha }}
+          artifacts: 'release-assets/*.zip'
+          allowUpdates: true
+          replacesArtifacts: true
+          prerelease: true
+          generateReleaseNotes: true
+
+  promote:
+    name: Promote approved backend release
+    if: inputs.release_action == 'promote-stable'
+    runs-on: ubuntu-22.04
+    environment: backend-release
+    permissions:
+      contents: write
+    steps:
+      - name: Verify the prerelease exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release_version must use major.minor.patch format" >&2
+            exit 1
+          fi
+          release_tag="flyings_marmot-$RELEASE_VERSION"
+          is_prerelease="$(
+            gh release view "$release_tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isPrerelease \
+              --jq .isPrerelease
+          )"
+          test "$is_prerelease" = true
+
+          asset_names="$(
+            gh release view "$release_tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json assets \
+              --jq '.assets[].name'
+          )"
+          for target in \
+            linux-x86_64 \
+            mac-x86_64 \
+            mac-arm64
+          do
+            expected="clangd-ucpp-${RELEASE_VERSION}-${target}.zip"
+            grep -Fxq "$expected" <<< "$asset_names"
+          done
+
+      - name: Promote existing prerelease without replacing its tested asset
+        uses: ncipollo/release-action@v1
+        with:
+          tag: flyings_marmot-${{ inputs.release_version }}
+          name: v${{ inputs.release_version }}
+          allowUpdates: true
+          prerelease: false
