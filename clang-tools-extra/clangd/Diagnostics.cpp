@@ -232,11 +232,12 @@ bool tryMoveToMainFile(Diag &D, FullSourceLoc DiagLoc) {
     FilePath = getCanonicalPath(*FE, SM.getFileManager());
   }
 
-  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path().string();
+  std::filesystem::path extensionDirPath =
+      std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
   std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
 
   // If the file is part of uC++, completely ignore its diagnostics
-  if( !FilePath->empty() && FilePath.value().find(uCPPLocation.string()) == 0) {
+  if (FilePath && FilePath->find(uCPPLocation.string()) == 0) {
     return false;
   }
 
@@ -744,10 +745,10 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
     FilePath = getCanonicalPath(*FE, SM.getFileManager());
   }
 
-  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
+  std::filesystem::path extensionDirPath =
+      std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
   std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
-  if( !FilePath->empty() && FilePath.value().find(uCPPLocation.string()) == 0) {
-    std::string FileName = std::filesystem::path(FilePath.value()).filename().string();
+  if (FilePath && FilePath->find(uCPPLocation.string()) == 0) {
     return;
   }
 

@@ -204,22 +204,32 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
                                 llvm::StringRef File) const {
   std::vector<std::string> &Cmd = Command.CommandLine;
   trace::Span S("AdjustCompileFlags");
-  
-  // Add uCPP code to the include path
-  std::filesystem::path extensionDirPath = std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
-  std::filesystem::path ucppLibPath = (extensionDirPath / "uCPP/source/src/library");
-  std::filesystem::path ucppCollectionPath = (extensionDirPath / "uCPP/source/src/collection");
 
-  Cmd.push_back("-I" + ucppLibPath.string());
-  Cmd.push_back("-I" + ucppCollectionPath.string());
+  // Add uCPP code to the include path when this is a packaged installation.
+  // Developer builds and manually configured clangd binaries may not have the
+  // runtime tree next to the executable.
+  std::filesystem::path extensionDirPath =
+      std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
+  std::filesystem::path ucppLibPath =
+      extensionDirPath / "uCPP/source/src/library";
+  std::filesystem::path ucppCollectionPath =
+      extensionDirPath / "uCPP/source/src/collection";
+
+  if (std::filesystem::is_directory(ucppLibPath))
+    Cmd.push_back("-I" + ucppLibPath.string());
+  if (std::filesystem::is_directory(ucppCollectionPath))
+    Cmd.push_back("-I" + ucppCollectionPath.string());
   // Disable error limit
   // This is kind of corner cutting but this helps us to ignore error diagnostics present in uC++ files
   Cmd.push_back("-ferror-limit=0"); //"-ferror-limit=0"
 
   // "mock" the import injection done by uC++
-  std::filesystem::path ucppKernelHeaderPath = (extensionDirPath / "uCPP/source/src/kernel/uC++.h");
-  Cmd.push_back("-include");
-  Cmd.push_back(ucppKernelHeaderPath.string());
+  std::filesystem::path ucppKernelHeaderPath =
+      extensionDirPath / "uCPP/source/src/kernel/uC++.h";
+  if (std::filesystem::is_regular_file(ucppKernelHeaderPath)) {
+    Cmd.push_back("-include");
+    Cmd.push_back(ucppKernelHeaderPath.string());
+  }
 
   // Most of the modifications below assumes the Cmd starts with a driver name.
   // We might consider injecting a generic driver name like "cc" or "c++", but

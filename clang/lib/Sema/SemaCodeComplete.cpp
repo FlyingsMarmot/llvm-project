@@ -2393,20 +2393,47 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
     }
 
     if (Results.includeCodePatterns()) {
-      // _When (condition) { statements }
-      Builder.AddTypedTextChunk("_When");
-      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
-      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
-      Builder.AddPlaceholderChunk("condition");
-      Builder.AddChunk(CodeCompletionString::CK_RightParen);
-      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
-      Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
-      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
-      Builder.AddPlaceholderChunk("statements");
-      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
-      Builder.AddChunk(CodeCompletionString::CK_RightBrace);
-      Results.AddResult(Result(Builder.TakeString()));
-      
+      auto AddWhenClausePattern = [&](const char *Clause, bool HasExpression,
+                                      bool HasBody) {
+        Builder.AddTypedTextChunk("_When");
+        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+        Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+        Builder.AddPlaceholderChunk("condition");
+        Builder.AddChunk(CodeCompletionString::CK_RightParen);
+        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+        Builder.AddTextChunk(Clause);
+        if (HasExpression) {
+          Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+          Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+          Builder.AddPlaceholderChunk("expression");
+          Builder.AddChunk(CodeCompletionString::CK_RightParen);
+        }
+        if (HasBody) {
+          Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+          Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+          Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+          Builder.AddPlaceholderChunk("statements");
+          Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+          Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+        }
+        Results.AddResult(Result(Builder.TakeString()));
+      };
+
+      // A _When guard must be followed by an accept/select clause, timeout,
+      // or terminating else clause.
+      AddWhenClausePattern("_Accept", /*HasExpression=*/true,
+                           /*HasBody=*/false);
+      AddWhenClausePattern("_Accept", /*HasExpression=*/true,
+                           /*HasBody=*/true);
+      AddWhenClausePattern("_Select", /*HasExpression=*/true,
+                           /*HasBody=*/false);
+      AddWhenClausePattern("_Select", /*HasExpression=*/true,
+                           /*HasBody=*/true);
+      AddWhenClausePattern("_Timeout", /*HasExpression=*/true,
+                           /*HasBody=*/true);
+      AddWhenClausePattern("_Else", /*HasExpression=*/false,
+                           /*HasBody=*/true);
+
       /// while (condition) { statements }
       Builder.AddTypedTextChunk("while");
       Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
