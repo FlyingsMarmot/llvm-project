@@ -27,7 +27,6 @@
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <numeric>
 
 using namespace clang;
@@ -1951,8 +1950,10 @@ ExprResult Parser::ParseCXXBoolLiteral() {
 ///       throw-expression: [C++ 15]
 ///         'throw' assignment-expression[opt]
 ExprResult Parser::ParseThrowExpression() {
-  assert(Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume) && "Not throw!");
-  bool isResumeStatement = Tok.is(tok::kw__Resume);
+  assert(Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume,
+                     tok::kw__ResumeTop) &&
+         "Not throw!");
+  bool IsResume = Tok.isOneOf(tok::kw__Resume, tok::kw__ResumeTop);
   SourceLocation ThrowLoc = ConsumeToken();           // Eat the throw token.
 
   // If the current token isn't the start of an assignment-expression,
@@ -1966,23 +1967,36 @@ ExprResult Parser::ParseThrowExpression() {
   case tok::colon:
   case tok::comma:
     return Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, nullptr);
-
   default:
-    ExprResult Expr(ParseAssignmentExpression());
-    if (Expr.isInvalid()) return Expr;
-    auto res = Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, Expr.get());
-
-    // If this is a resume statement, continue parsing
-    if(isResumeStatement && Tok.is(tok::kw__At)) {
-      // Eat the _At token
-      ConsumeToken();
-      // Parse the expression following the _At token
-      Expr = ParseAssignmentExpression();
-      res = Actions.ActOnCXXThrow(getCurScope(), ThrowLoc, Expr.get());
-    }
-
-    return res;
+    break;
   }
+
+  ExprResult Raised;
+  ExprResult Target;
+  if (Tok.isNot(tok::kw__At)) {
+    Raised = ParseAssignmentExpression();
+    if (Raised.isInvalid())
+      return Raised;
+  }
+
+  if (IsResume && Tok.is(tok::kw__At)) {
+    ConsumeToken();
+    Target = ParseAssignmentExpression();
+    if (Target.isInvalid())
+      return Target;
+  }
+
+  if (Raised.isUsable() && Target.isUsable()) {
+    SmallVector<Expr *, 2> Operands{Raised.get(), Target.get()};
+    ExprResult Combined = Actions.CreateRecoveryExpr(
+        Raised.get()->getBeginLoc(), Target.get()->getEndLoc(), Operands,
+        Raised.get()->getType());
+    if (Combined.isUsable())
+      Raised = Combined;
+  }
+
+  return Actions.ActOnCXXThrow(getCurScope(), ThrowLoc,
+                               Raised.isUsable() ? Raised.get() : Target.get());
 }
 
 /// Parse the C++ Coroutines co_yield expression.

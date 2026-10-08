@@ -4694,8 +4694,14 @@ void Parser::ParseDeclarationSpecifiers(
 
     // class-specifier:
     case tok::kw_class:
+    case tok::kw__Actor:
+    case tok::kw__CorActor:
+    case tok::kw__Cormonitor:
     case tok::kw__Coroutine:
     case tok::kw__Task:
+    case tok::kw__RealTimeTask:
+    case tok::kw__PeriodicTask:
+    case tok::kw__SporadicTask:
     case tok::kw__Exception:
     case tok::kw__Monitor:
     case tok::kw__Event:
@@ -4704,6 +4710,25 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw_union: {
       tok::TokenKind Kind = Tok.getKind();
       ConsumeToken();
+
+      switch (Kind) {
+      case tok::kw__Actor:
+      case tok::kw__CorActor:
+      case tok::kw__Cormonitor:
+      case tok::kw__Coroutine:
+      case tok::kw__Task:
+      case tok::kw__RealTimeTask:
+      case tok::kw__PeriodicTask:
+      case tok::kw__SporadicTask:
+      case tok::kw__Exception:
+      case tok::kw__Monitor:
+      case tok::kw__Event:
+        if (Tok.is(tok::less))
+          ConsumeUCPPTypeList();
+        break;
+      default:
+        break;
+      }
 
       // These are attributes following class specifiers.
       // To produce better diagnostic, we parse them when
@@ -4720,6 +4745,15 @@ void Parser::ParseDeclarationSpecifiers(
       }
       continue;
     }
+
+    // uC++ function and class mutex specifiers. Their queue types affect the
+    // uC++ runtime transformation but not Clang's C++ AST.
+    case tok::kw__Mutex:
+    case tok::kw__Nomutex:
+      ConsumeToken();
+      if (Tok.is(tok::less))
+        ConsumeUCPPTypeList();
+      continue;
 
     // enum-specifier:
     case tok::kw_enum:
@@ -5866,6 +5900,17 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
 
     // struct-or-union-specifier (C99) or class-specifier (C++)
   case tok::kw_class:
+  case tok::kw__Actor:
+  case tok::kw__CorActor:
+  case tok::kw__Cormonitor:
+  case tok::kw__Coroutine:
+  case tok::kw__Task:
+  case tok::kw__RealTimeTask:
+  case tok::kw__PeriodicTask:
+  case tok::kw__SporadicTask:
+  case tok::kw__Exception:
+  case tok::kw__Monitor:
+  case tok::kw__Event:
   case tok::kw_struct:
   case tok::kw___interface:
   case tok::kw_union:
@@ -5952,6 +5997,17 @@ bool Parser::isTypeSpecifierQualifier() {
 
     // struct-or-union-specifier (C99) or class-specifier (C++)
   case tok::kw_class:
+  case tok::kw__Actor:
+  case tok::kw__CorActor:
+  case tok::kw__Cormonitor:
+  case tok::kw__Coroutine:
+  case tok::kw__Task:
+  case tok::kw__RealTimeTask:
+  case tok::kw__PeriodicTask:
+  case tok::kw__SporadicTask:
+  case tok::kw__Exception:
+  case tok::kw__Monitor:
+  case tok::kw__Event:
   case tok::kw_struct:
   case tok::kw___interface:
   case tok::kw_union:
@@ -5963,6 +6019,8 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_volatile:
   case tok::kw_restrict:
   case tok::kw__Sat:
+  case tok::kw__Mutex:
+  case tok::kw__Nomutex:
 
     // Debugger support.
   case tok::kw___unknown_anytype:
@@ -6172,6 +6230,17 @@ bool Parser::isDeclarationSpecifier(
 
     // struct-or-union-specifier (C99) or class-specifier (C++)
   case tok::kw_class:
+  case tok::kw__Actor:
+  case tok::kw__CorActor:
+  case tok::kw__Cormonitor:
+  case tok::kw__Coroutine:
+  case tok::kw__Task:
+  case tok::kw__RealTimeTask:
+  case tok::kw__PeriodicTask:
+  case tok::kw__SporadicTask:
+  case tok::kw__Exception:
+  case tok::kw__Monitor:
+  case tok::kw__Event:
   case tok::kw_struct:
   case tok::kw_union:
   case tok::kw___interface:
@@ -6189,6 +6258,8 @@ bool Parser::isDeclarationSpecifier(
   case tok::kw_virtual:
   case tok::kw_explicit:
   case tok::kw__Noreturn:
+  case tok::kw__Mutex:
+  case tok::kw__Nomutex:
 
     // alignment-specifier
   case tok::kw__Alignas:

@@ -1337,17 +1337,22 @@ void WhileStmt::setConditionVariable(const ASTContext &Ctx, VarDecl *V) {
       DeclStmt(DeclGroupRef(V), VarRange.getBegin(), VarRange.getEnd());
 }
 
-// When Stmt
-WhenStmt* WhenStmt::Create(const ASTContext &Ctx, SourceLocation Loc, Expr *Cond, Stmt *BodyStmt) {
-// WhenStmt* WhenStmt::Create(const ASTContext &Ctx, SourceLocation Loc, Expr *Cond, bool Accept, IdentifierInfo *Var, Stmt *BodyStmt) {
-  
-  void *Mem = Ctx.Allocate(totalSizeToAlloc<Stmt *>(NumMandatoryStmtPtr), alignof(WhenStmt));
-  return new (Mem) WhenStmt(Loc, Cond, BodyStmt);
+WhenStmt::WhenStmt(SourceLocation Loc, Expr *Cond, Stmt *BodyStmt)
+    : Stmt(Stmt::WhenStmtClass), WhenLoc(Loc), SubExprs{Cond, BodyStmt} {}
+
+Expr *WhenStmt::getCondition() const {
+  return cast_or_null<Expr>(SubExprs[0]);
 }
 
-WhenStmt* WhenStmt::CreateEmpty(const ASTContext &Ctx) {
-  void *Mem = Ctx.Allocate(totalSizeToAlloc<Stmt *>(NumMandatoryStmtPtr), alignof(WhenStmt));
-  return new (Mem) WhenStmt(EmptyShell());
+void WhenStmt::setCondition(Expr *Cond) { SubExprs[0] = Cond; }
+
+WhenStmt *WhenStmt::Create(const ASTContext &Ctx, SourceLocation Loc,
+                           Expr *Cond, Stmt *BodyStmt) {
+  return new (Ctx) WhenStmt(Loc, Cond, BodyStmt);
+}
+
+WhenStmt *WhenStmt::CreateEmpty(const ASTContext &Ctx) {
+  return new (Ctx) WhenStmt(EmptyShell());
 }
 
 // IndirectGotoStmt

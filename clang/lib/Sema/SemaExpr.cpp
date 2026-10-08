@@ -20397,12 +20397,17 @@ Sema::ConditionResult Sema::ActOnCondition(Scope *S, SourceLocation Loc,
   ExprResult Cond;
   switch (CK) {
   case ConditionKind::ACCEPT:
-    // TODO: Create a special analyzer for function names here
-    if (getLangOpts().CPlusPlus) {
-        Cond = ExprResult(new (Context) CXXBoolLiteralExpr(true, Context.BoolTy, Loc));
-    } else {
-        llvm::APInt TrueValue(Context.getTypeSize(Context.BoolTy), 1);
-        Cond = ExprResult(IntegerLiteral::Create(Context, TrueValue, Context.BoolTy, Loc));
+    // uC++ conditions are not C++ boolean conditions, but retaining the parsed
+    // expression in the AST is important for semantic highlighting,
+    // navigation, and rename.
+    if (SubExpr)
+      Cond = SubExpr;
+    else if (getLangOpts().CPlusPlus)
+      Cond = new (Context) CXXBoolLiteralExpr(true, Context.BoolTy, Loc);
+    else {
+      llvm::APInt TrueValue(Context.getTypeSize(Context.BoolTy), 1);
+      Cond =
+          IntegerLiteral::Create(Context, TrueValue, Context.BoolTy, Loc);
     }
     break;
   case ConditionKind::Boolean:

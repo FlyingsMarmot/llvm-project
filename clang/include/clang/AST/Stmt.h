@@ -2967,57 +2967,43 @@ public:
 };
 
 /// WhenStmt - This represents a '_When' stmt.
-class WhenStmt : public Stmt, private llvm::TrailingObjects<WhenStmt, Stmt *> {
-    SourceLocation WhenLoc;
-    Expr *Condition;
-    bool IsAccept;
-    IdentifierInfo *VarName;
-    Stmt *Body;
-
-  /*
-    * WhenStmt is followed by several trailing objects, some of which optional.
-    * Note that it would be more convenient to put the optional trailing objects
-    * at the end but this would change the order in children().
-    * The trailing objects are in order:
-    *
-    * * A "Stmt *" for the condition.
-    *    Always present. This is in fact an "Expr *".
-    *
-    * * A "Stmt *" for the body.
-    *    Always present.
-  */
-  enum {
-    NumMandatoryStmtPtr = 2
-  };
+class WhenStmt : public Stmt {
+  SourceLocation WhenLoc;
+  Stmt *SubExprs[2];
+  bool IsAccept = false;
+  IdentifierInfo *VarName = nullptr;
 
 public:
-    // WhenStmt(SourceLocation Loc, Expr *Cond, bool Accept, IdentifierInfo *Var, Stmt *BodyStmt)
-    WhenStmt(SourceLocation Loc, Expr *Cond, Stmt *BodyStmt)
-        : Stmt(Stmt::WhenStmtClass), WhenLoc(Loc), Condition(Cond),
-          Body(BodyStmt) {}
-          // IsAccept(Accept), VarName(Var), Body(BodyStmt) {}
+  WhenStmt(SourceLocation Loc, Expr *Cond, Stmt *BodyStmt);
 
-    explicit WhenStmt(EmptyShell Empty)
-        : Stmt(Stmt::WhenStmtClass) {}
+  explicit WhenStmt(EmptyShell Empty)
+      : Stmt(Stmt::WhenStmtClass, Empty), SubExprs{nullptr, nullptr} {}
 
-    // static WhenStmt* Create(const ASTContext &Ctx, SourceLocation Loc, Expr *Cond, bool Accept, IdentifierInfo *Var, Stmt *BodyStmt);
-    static WhenStmt* Create(const ASTContext &Ctx, SourceLocation Loc, Expr *Cond, Stmt *BodyStmt);
-    static WhenStmt* CreateEmpty(const ASTContext &Ctx);
+  static WhenStmt *Create(const ASTContext &Ctx, SourceLocation Loc, Expr *Cond,
+                          Stmt *BodyStmt);
+  static WhenStmt *CreateEmpty(const ASTContext &Ctx);
 
-    SourceLocation getBeginLoc() const { return WhenLoc; }
-    SourceLocation getEndLoc() const { return Body ? Body->getEndLoc() : WhenLoc; }
-    child_range children() { return child_range(&Body, &Body + 1); }
-    static bool classof(const Stmt *S) { return S->getStmtClass() == WhenStmtClass; }
+  SourceLocation getBeginLoc() const { return WhenLoc; }
+  SourceLocation getEndLoc() const {
+    return getBody() ? getBody()->getEndLoc() : WhenLoc;
+  }
+  child_range children() { return child_range(SubExprs, SubExprs + 2); }
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + 2);
+  }
+  static bool classof(const Stmt *S) {
+    return S->getStmtClass() == WhenStmtClass;
+  }
 
-    bool isAccept() const { return IsAccept; }
-    IdentifierInfo *getVarName() const { return VarName; }
-    Expr *getCondition() const { return Condition; }
-    void setCondition(Expr *Cond) { Condition = Cond; }
-    Stmt *getBody() const { return Body; }
-    void setBody(Stmt *B) { Body = B; }
+  bool isAccept() const { return IsAccept; }
+  IdentifierInfo *getVarName() const { return VarName; }
+  Expr *getCondition() const;
+  void setCondition(Expr *Cond);
+  Stmt *getBody() const { return SubExprs[1]; }
+  void setBody(Stmt *B) { SubExprs[1] = B; }
 
-    SourceLocation getWhenLoc() const { return WhenLoc; }
-    SourceLocation setWhenLoc(SourceLocation Loc) { return WhenLoc = Loc; }
+  SourceLocation getWhenLoc() const { return WhenLoc; }
+  SourceLocation setWhenLoc(SourceLocation Loc) { return WhenLoc = Loc; }
 
 };
 

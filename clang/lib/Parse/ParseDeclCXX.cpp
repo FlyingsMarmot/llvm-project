@@ -29,9 +29,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <optional>
 
 using namespace clang;
@@ -1728,15 +1726,20 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     TagType = DeclSpec::TST_class;
   else if (TagTokKind == tok::kw__Coroutine)
     TagType = DeclSpec::TST_coroutine;
-  else if (TagTokKind == tok::kw__Task)
-      TagType = DeclSpec::TST_task;
+  else if (TagTokKind == tok::kw__CorActor || TagTokKind == tok::kw__Cormonitor)
+    TagType = DeclSpec::TST_coroutine;
+  else if (TagTokKind == tok::kw__Task || TagTokKind == tok::kw__RealTimeTask ||
+           TagTokKind == tok::kw__PeriodicTask ||
+           TagTokKind == tok::kw__SporadicTask)
+    TagType = DeclSpec::TST_task;
   else if (TagTokKind == tok::kw__Exception)
-      TagType = DeclSpec::TST_exception;
+    TagType = DeclSpec::TST_exception;
   else if (TagTokKind == tok::kw__Monitor)
-      TagType = DeclSpec::TST_monitor;
+    TagType = DeclSpec::TST_monitor;
   else if (TagTokKind == tok::kw__Event)
-      TagType = DeclSpec::TST_event;
-    
+    TagType = DeclSpec::TST_event;
+  else if (TagTokKind == tok::kw__Actor)
+    TagType = DeclSpec::TST_class;
   else {
     assert(TagTokKind == tok::kw_union && "Not a class specifier");
     TagType = DeclSpec::TST_union;
@@ -3968,12 +3971,6 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
     // While we still have something to read, read the member-declarations.
     while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
            Tok.isNot(tok::eof)) {
-            
-      // Check and parse uC++ mutex specifiers if present
-      if (Tok.isOneOf(tok::kw__Nomutex, tok::kw__Mutex)) {
-        ConsumeToken(); // Consume the _Nomutex / _Mutex keyword
-      }
-
       // Each iteration of this loop reads one member-declaration.
       ParseCXXClassMemberDeclarationWithPragmas(
           CurAS, AccessAttrs, static_cast<DeclSpec::TST>(TagType), TagDecl);
@@ -4262,7 +4259,7 @@ ExceptionSpecificationType Parser::tryParseExceptionSpecification(
 
   // Handle delayed parsing of exception-specifications.
   if (Delayed) {
-    if (!Tok.isOneOf(tok::kw_throw, tok::kw_noexcept, tok::kw__Throw, tok::kw__Resume))
+    if (!Tok.isOneOf(tok::kw_throw, tok::kw_noexcept))
       return EST_None;
 
     // Consume and cache the starting token.
@@ -4298,7 +4295,7 @@ ExceptionSpecificationType Parser::tryParseExceptionSpecification(
   }
 
   // See if there's a dynamic specification.
-  if (Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume)) {
+  if (Tok.is(tok::kw_throw)) {
     Result = ParseDynamicExceptionSpecification(
         SpecificationRange, DynamicExceptions, DynamicExceptionRanges);
     assert(DynamicExceptions.size() == DynamicExceptionRanges.size() &&
@@ -4346,7 +4343,7 @@ ExceptionSpecificationType Parser::tryParseExceptionSpecification(
 
     // If there's a dynamic specification after a noexcept specification,
     // parse that and ignore the results.
-    if (Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume)) {
+    if (Tok.is(tok::kw_throw)) {
       Diag(Tok.getLocation(), diag::err_dynamic_and_noexcept_specification);
       ParseDynamicExceptionSpecification(NoexceptRange, DynamicExceptions,
                                          DynamicExceptionRanges);
@@ -4385,7 +4382,7 @@ static void diagnoseDynamicExceptionSpecification(Parser &P, SourceRange Range,
 ExceptionSpecificationType Parser::ParseDynamicExceptionSpecification(
     SourceRange &SpecificationRange, SmallVectorImpl<ParsedType> &Exceptions,
     SmallVectorImpl<SourceRange> &Ranges) {
-  assert(Tok.isOneOf(tok::kw_throw, tok::kw__Throw, tok::kw__Resume) && "expected throw");
+  assert(Tok.is(tok::kw_throw) && "expected throw");
 
   SpecificationRange.setBegin(ConsumeToken());
   BalancedDelimiterTracker T(*this, tok::l_paren);

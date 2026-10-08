@@ -14,7 +14,7 @@ on:
         required: false
       os_list:
         required: false
-        default: '["ubuntu-latest", "windows-2019", "macOS-13"]'
+        default: '["ubuntu-22.04", "windows-2019", "macOS-13"]'
       python_version:
         required: false
         type: string
@@ -39,7 +39,9 @@ on:
         type: string
         # Use windows-2019 due to:
         # https://developercommunity.visualstudio.com/t/Prev-Issue---with-__assume-isnan-/1597317
-        default: '["ubuntu-latest", "windows-2019", "macOS-13"]'
+        # Match the Linux runner to the Ubuntu 22.04 CI container so
+        # setup-python does not install a binary requiring a newer glibc.
+        default: '["ubuntu-22.04", "windows-2019", "macOS-13"]'
 
       python_version:
         required: false
@@ -113,7 +115,8 @@ jobs:
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
             builddir="/mnt/build/"
-            mkdir -p $builddir
+            sudo mkdir -p "$builddir"
+            sudo chown gha "$builddir"
             extra_cmake_args="-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang"
           else
             builddir="$(pwd)"/build

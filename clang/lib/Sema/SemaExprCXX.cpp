@@ -4075,7 +4075,9 @@ ExprResult Sema::CheckConditionVariable(VarDecl *ConditionVar,
 
   switch (CK) {
   case ConditionKind::ACCEPT:
-    return ExprResult(new (Context) CXXBoolLiteralExpr(true, Context.BoolTy, StmtLoc));
+    // Preserve the declaration reference for uC++ tooling. Unlike an ordinary
+    // C++ condition, an accept/select condition is not converted to bool.
+    return Condition;
   case ConditionKind::Boolean:
     return CheckBooleanCondition(StmtLoc, Condition.get());
 

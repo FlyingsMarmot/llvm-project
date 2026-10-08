@@ -1193,6 +1193,25 @@ TEST(SemanticHighlighting, ScopeModifiers) {
     checkHighlightings(Test, {}, ScopeModifierMask);
 }
 
+TEST(SemanticHighlighting, UCPPStatements) {
+  checkHighlightings(R"cpp(
+    _Actor $Class_def[[Actor]] {};
+    void $Function_def[[selection]](bool $Parameter_def[[first]],
+                                    bool $Parameter_def[[second]]) {
+      _Accept($Parameter[[first]]) {} or _Accept($Parameter[[second]]) {}
+      _Select($Parameter[[first]] $Operator[[or]] $Parameter[[second]]) {}
+          and _Select($Parameter[[first]] $Operator[[and]] $Parameter[[second]]) {}
+      _When($Parameter[[first]] $Operator[[and]] $Parameter[[second]])
+          _Accept($Parameter[[first]]) {}
+      _AcceptWait($Parameter[[first]]) $Parameter[[second]]
+          _With $Parameter[[first]];
+      _Timeout($Parameter[[second]]) {}
+      _Resume $Parameter[[first]] _At $Parameter[[second]];
+    }
+  )cpp",
+                     {}, ~ScopeModifierMask);
+}
+
 // Ranges are highlighted as variables, unless highlighted as $Function etc.
 std::vector<HighlightingToken> tokens(llvm::StringRef MarkedText) {
   Annotations A(MarkedText);

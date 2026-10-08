@@ -2198,8 +2198,13 @@ private:
                                  SourceLocation Loc, Sema::ConditionKind CK,
                                  SourceLocation &LParenLoc,
                                  SourceLocation &RParenLoc);
+  bool isUCPPWordOperator(tok::TokenKind Kind, StringRef Spelling);
+  void ConsumeUCPPTypeList();
   StmtResult ParseAcceptStatement(SourceLocation *TrailingElseLoc);
+  StmtResult ParseAcceptReturnOrWaitStatement();
   StmtResult ParseSelectStatement(SourceLocation *TrailingElseLoc);
+  StmtResult ParseUCPPEnableDisableStatement();
+  StmtResult ParseUCPPTimeoutStatement();
 
   StmtResult ParseIfStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseSwitchStatement(SourceLocation *TrailingElseLoc);

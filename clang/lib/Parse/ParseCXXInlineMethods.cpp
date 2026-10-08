@@ -216,8 +216,13 @@ NamedDecl *Parser::ParseCXXInlineMethodDef(
 
   // If we're in a function-try-block, we need to store all the catch blocks.
   if (kind == tok::kw_try) {
-    while (Tok.isOneOf(tok::kw_catch, tok::kw__CatchResume)) {
+    while (Tok.isOneOf(tok::kw_catch, tok::kw__Catch, tok::kw__CatchResume)) {
       ConsumeAndStoreUntil(tok::l_brace, Toks, /*StopAtSemi=*/false);
+      ConsumeAndStoreUntil(tok::r_brace, Toks, /*StopAtSemi=*/false);
+    }
+    if (Tok.is(tok::kw__Finally)) {
+      Toks.push_back(Tok);
+      ConsumeToken();
       ConsumeAndStoreUntil(tok::r_brace, Toks, /*StopAtSemi=*/false);
     }
   }
