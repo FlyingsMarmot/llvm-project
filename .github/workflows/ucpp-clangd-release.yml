@@ -36,14 +36,17 @@ jobs:
           - runner: ubuntu-22.04
             platform: linux
             architecture: x86_64
+            timeout_minutes: 180
           - runner: macos-15-intel
             platform: mac
             architecture: x86_64
+            timeout_minutes: 360
           - runner: macos-15
             platform: mac
             architecture: arm64
+            timeout_minutes: 180
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
+    timeout-minutes: ${{ matrix.timeout_minutes }}
     env:
       RELEASE_VERSION: ${{ inputs.release_version }}
       UCPP_REF: ${{ inputs.ucpp_ref }}
@@ -149,9 +152,15 @@ jobs:
         run: |
           set -euo pipefail
           release_root="clangd-ucpp-${RELEASE_VERSION}-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}"
-          printf 'int main() { return 0; }\n' > packaged-smoke.cpp
+          # Keep the smoke test independent of LLVM's own build database.
+          smoke_dir="$(mktemp -d "$RUNNER_TEMP/ucpp-clangd-smoke.XXXXXX")"
+          trap 'rm -rf "$smoke_dir"' EXIT
+          printf '%s\n' '-std=c++20' '-fcxx-exceptions' > "$smoke_dir/compile_flags.txt"
+          printf '%s\n' '#include <stddef.h>' '_Coroutine Probe {};' '_Task TaskProbe {};' \
+            'int main() { return 0; }' > "$smoke_dir/packaged-smoke.cpp"
           "$release_root/bin/clangd" \
-            --check="$PWD/packaged-smoke.cpp" \
+            --check="$smoke_dir/packaged-smoke.cpp" \
+            --compile-commands-dir="$smoke_dir" \
             --enable-config=false
 
       - name: Upload workflow artifact
