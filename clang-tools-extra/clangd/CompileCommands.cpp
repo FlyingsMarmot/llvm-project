@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompileCommands.h"
-#include "Diagnostics.h"
 #include "Config.h"
+#include "Diagnostics.h"
 #include "support/Logger.h"
 #include "support/Trace.h"
 #include "clang/Driver/Driver.h"
@@ -205,30 +205,36 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
   std::vector<std::string> &Cmd = Command.CommandLine;
   trace::Span S("AdjustCompileFlags");
 
-  // Add uCPP code to the include path when this is a packaged installation.
-  // Developer builds and manually configured clangd binaries may not have the
-  // runtime tree next to the executable.
-  std::filesystem::path extensionDirPath =
-      std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
-  std::filesystem::path ucppLibPath =
-      extensionDirPath / "uCPP/source/src/library";
-  std::filesystem::path ucppCollectionPath =
-      extensionDirPath / "uCPP/source/src/collection";
+  // Unit-test and developer contexts without an executable path must not
+  // discover a runtime relative to the process's working directory.
+  if (!ClangdBinaryPath.empty() && !Cmd.empty()) {
+    // Add uCPP code to the include path when this is a packaged installation.
+    // Developer builds and manually configured clangd binaries may not have the
+    // runtime tree next to the executable.
+    std::filesystem::path extensionDirPath =
+        std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
+    std::filesystem::path ucppLibPath =
+        extensionDirPath / "uCPP/source/src/library";
+    std::filesystem::path ucppCollectionPath =
+        extensionDirPath / "uCPP/source/src/collection";
 
-  if (std::filesystem::is_directory(ucppLibPath))
-    Cmd.push_back("-I" + ucppLibPath.string());
-  if (std::filesystem::is_directory(ucppCollectionPath))
-    Cmd.push_back("-I" + ucppCollectionPath.string());
-  // Disable error limit
-  // This is kind of corner cutting but this helps us to ignore error diagnostics present in uC++ files
-  Cmd.push_back("-ferror-limit=0"); //"-ferror-limit=0"
-
-  // "mock" the import injection done by uC++
-  std::filesystem::path ucppKernelHeaderPath =
-      extensionDirPath / "uCPP/source/src/kernel/uC++.h";
-  if (std::filesystem::is_regular_file(ucppKernelHeaderPath)) {
-    Cmd.push_back("-include");
-    Cmd.push_back(ucppKernelHeaderPath.string());
+    if (std::filesystem::is_directory(ucppLibPath))
+      Cmd.push_back("-I" + ucppLibPath.string());
+    if (std::filesystem::is_directory(ucppCollectionPath))
+      Cmd.push_back("-I" + ucppCollectionPath.string());
+    // The native kernel header assumes Linux runtime internals. Use the
+    // packaged portable declarations for code intelligence instead of forcing
+    // that header into every translation unit (including ordinary C++ files).
+    const std::filesystem::path AnalysisIncludes =
+        extensionDirPath / "ucpp-include";
+    const std::filesystem::path AnalysisHeader = AnalysisIncludes / "uC++.h";
+    if (std::filesystem::is_regular_file(AnalysisHeader)) {
+      Cmd.push_back("-I" + AnalysisIncludes.string());
+      Cmd.push_back("-I" +
+                    (extensionDirPath / "uCPP/source/src/kernel").string());
+      Cmd.push_back("-include");
+      Cmd.push_back(AnalysisHeader.string());
+    }
   }
 
   // Most of the modifications below assumes the Cmd starts with a driver name.

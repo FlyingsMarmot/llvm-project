@@ -40,21 +40,22 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
 #include <optional>
 #include <set>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <filesystem>
 
 namespace clang {
 namespace clangd {
 
 std::string ClangdBinaryPath;
 void initializeClangdBinaryPath(const char *argv0) {
-    void *mainAddr = (void *)(uintptr_t)&initializeClangdBinaryPath; // can be any function
-    ClangdBinaryPath = llvm::sys::fs::getMainExecutable(argv0, mainAddr);
+  void *mainAddr =
+      (void *)(uintptr_t)&initializeClangdBinaryPath; // can be any function
+  ClangdBinaryPath = llvm::sys::fs::getMainExecutable(argv0, mainAddr);
 }
 
 namespace {
@@ -748,9 +749,8 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
   std::filesystem::path extensionDirPath =
       std::filesystem::path(clang::clangd::ClangdBinaryPath).parent_path();
   std::filesystem::path uCPPLocation = extensionDirPath / "uCPP/source/src";
-  if (FilePath && FilePath->find(uCPPLocation.string()) == 0) {
-    return;
-  }
+  const bool IsRuntimeDiagnostic =
+      FilePath && FilePath->find(uCPPLocation.string() + "/") == 0;
 
   auto FillDiagBase = [&](DiagBase &D) {
     fillNonLocationData(DiagLevel, Info, D);
@@ -833,8 +833,7 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
     }
     if (Message.empty()) // either !SyntheticMessage, or we failed to make one.
       Info.FormatDiagnostic(Message);
-    LastDiag->Fixes.push_back(
-        Fix{std::string(Message), std::move(Edits), {}});
+    LastDiag->Fixes.push_back(Fix{std::string(Message), std::move(Edits), {}});
     return true;
   };
 
@@ -848,7 +847,9 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
       DiagLevel = Adjuster(DiagLevel, Info);
 
     FillDiagBase(*LastDiag);
-    if (isExcluded(LastDiag->ID))
+    // Keep a suppressed parent so notes from other headers are also dropped.
+    // Returning before creating LastDiag would orphan those notes.
+    if (IsRuntimeDiagnostic || isExcluded(LastDiag->ID))
       LastDiag->Severity = DiagnosticsEngine::Ignored;
     if (DiagCB)
       DiagCB(Info, *LastDiag);
@@ -875,7 +876,7 @@ void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
 
     // If a diagnostic was suppressed due to the suppression filter,
     // also suppress notes associated with it.
-    if (LastDiag->Severity == DiagnosticsEngine::Ignored)
+    if (LastDiag->Severity == DiagnosticsEngine::Ignored || IsRuntimeDiagnostic)
       return;
 
     // Give include-fixer a chance to replace a note with a fix.

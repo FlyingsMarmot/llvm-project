@@ -873,6 +873,15 @@ void Preprocessor::Lex(Token &Result) {
   while (!CurLexerCallback(*this, Result))
     ;
 
+  // Standard libraries may use reserved identifiers such as libc++'s _Select.
+  // Keep uC++ keywords in user code, including system macros expanded there,
+  // but treat these spellings as identifiers inside system headers.
+  if (Result.getKind() >= tok::kw__Accept &&
+      Result.getKind() <= tok::kw__With &&
+      SourceMgr.isInSystemHeader(
+          SourceMgr.getExpansionLoc(Result.getLocation())))
+    Result.setKind(tok::identifier);
+
   if (Result.is(tok::unknown) && TheModuleLoader.HadFatalFailure)
     return;
 

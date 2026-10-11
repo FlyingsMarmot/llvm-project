@@ -30,6 +30,7 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/Specifiers.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/ScopedPrinter.h"
@@ -150,6 +151,46 @@ ifTidyChecks(::testing::Matcher<std::vector<clangd::Diag>> M) {
   if (!CLANGD_TIDY_CHECKS)
     return IsEmpty();
   return M;
+}
+
+TEST(DiagnosticsTest, UCPPRuntimeDiagnosticKeepsSuppressedParent) {
+  const std::string OldBinaryPath = ClangdBinaryPath;
+  auto RestorePath =
+      llvm::make_scope_exit([&] { ClangdBinaryPath = OldBinaryPath; });
+  ClangdBinaryPath = testPath("clangd");
+  auto TU = TestTU::withCode(R"cpp(
+    #include "uCPP/source/src/kernel/runtime.h"
+    int broken = "bad"; // error-ok
+  )cpp");
+  TU.AdditionalFiles["deprecated.h"] =
+      "struct [[deprecated(\"use a replacement\")]] Old {};";
+  TU.AdditionalFiles["uCPP/source/src/kernel/runtime.h"] = R"cpp(
+    #include "deprecated.h"
+    Old value;
+  )cpp";
+  TU.ExtraArgs = {std::string("-I") + testRoot()};
+  auto AST = TU.build();
+  EXPECT_THAT(AST.getDiagnostics(),
+              ElementsAre(Field(&clangd::Diag::Message,
+                                ::testing::HasSubstr("cannot initialize"))));
+  EXPECT_THAT(AST.getDiagnostics().front().Notes, IsEmpty());
+}
+
+TEST(DiagnosticsTest, UCPPRuntimeNoteDoesNotHideUserError) {
+  const std::string OldBinaryPath = ClangdBinaryPath;
+  auto RestorePath =
+      llvm::make_scope_exit([&] { ClangdBinaryPath = OldBinaryPath; });
+  ClangdBinaryPath = testPath("clangd");
+  auto TU = TestTU::withCode(R"cpp(
+    #include "uCPP/source/src/kernel/runtime.h"
+    int value; // error-ok
+  )cpp");
+  TU.AdditionalFiles["uCPP/source/src/kernel/runtime.h"] = "void value();";
+  auto AST = TU.build();
+  EXPECT_THAT(AST.getDiagnostics(),
+              ElementsAre(Field(&clangd::Diag::Message,
+                                ::testing::HasSubstr("different kind"))));
+  EXPECT_THAT(AST.getDiagnostics().front().Notes, IsEmpty());
 }
 
 TEST(DiagnosticsTest, DiagnosticRanges) {
@@ -1930,10 +1971,10 @@ TEST(ParsedASTTest, ModuleSawDiag) {
   TestTU TU;
 
   auto AST = TU.build();
-        #if 0
+#if 0
   EXPECT_THAT(AST.getDiagnostics(),
               testing::Contains(Diag(Code.range(), KDiagMsg.str())));
-        #endif
+#endif
 }
 
 TEST(Preamble, EndsOnNonEmptyLine) {

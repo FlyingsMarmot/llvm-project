@@ -43,7 +43,7 @@ jobs:
             platform: mac
             architecture: arm64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
+    timeout-minutes: ${{ matrix.platform == 'mac' && matrix.architecture == 'x86_64' && 360 || 180 }}
     env:
       RELEASE_VERSION: ${{ inputs.release_version }}
       UCPP_REF: ${{ inputs.ucpp_ref }}
@@ -107,11 +107,15 @@ jobs:
           build/bin/clang -cc1 -std=c++20 -fcxx-exceptions \
             -Wno-everything -fsyntax-only -verify \
             clang/test/Parser/ucpp-complete.cpp
+          build/bin/clang -cc1 -std=c++20 -fcxx-exceptions \
+            -fsyntax-only -verify \
+            -isystem clang/test/Parser/Inputs/ucpp-system \
+            clang/test/Parser/ucpp-system-header.cpp
 
-      - name: Run clangd semantic-highlighting regressions
+      - name: Run clangd regressions
         run: |
           build/tools/clang/tools/extra/clangd/unittests/ClangdTests \
-            --gtest_filter='SemanticHighlighting.*'
+            --gtest_filter='SemanticHighlighting.*:DiagnosticsTest.UCPP*:CommandMangler.*'
 
       - name: Assemble release archive
         id: archive
@@ -125,6 +129,8 @@ jobs:
           install -m 0755 build/bin/clangd "$release_root/bin/clangd"
           cp -a build/lib/clang "$release_root/lib/"
           cp -a vscode-clangd/uCPP "$release_root/bin/uCPP"
+          mkdir -p "$release_root/bin/ucpp-include"
+          cp clang-tools-extra/clangd/ucpp/uC++.h "$release_root/bin/ucpp-include/"
           cp LICENSE.TXT "$release_root/LICENSE.TXT"
 
           {
@@ -149,10 +155,7 @@ jobs:
         run: |
           set -euo pipefail
           release_root="clangd-ucpp-${RELEASE_VERSION}-${TARGET_PLATFORM}-${TARGET_ARCHITECTURE}"
-          printf 'int main() { return 0; }\n' > packaged-smoke.cpp
-          "$release_root/bin/clangd" \
-            --check="$PWD/packaged-smoke.cpp" \
-            --enable-config=false
+          python3 clang-tools-extra/clangd/test/ucpp-packaged-smoke.py "$release_root"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
